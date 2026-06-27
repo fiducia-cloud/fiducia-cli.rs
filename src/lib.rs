@@ -64,7 +64,13 @@ mod tests {
     use super::*;
 
     fn rl(name: &str, ms: Option<f64>) -> RegionLatency {
-        RegionLatency { name: name.into(), url: "u".into(), median_ms: ms, ok: 1, total: 1 }
+        RegionLatency {
+            name: name.into(),
+            url: "u".into(),
+            median_ms: ms,
+            ok: 1,
+            total: 1,
+        }
     }
 
     #[test]
@@ -77,7 +83,10 @@ mod tests {
 
     #[test]
     fn parse_regions_reads_edge_format() {
-        let regions = parse_regions(r#"[{"name":"gcp","url":"https://gcp.lb"},{"name":"aws","url":"https://aws.lb"}]"#).unwrap();
+        let regions = parse_regions(
+            r#"[{"name":"gcp","url":"https://gcp.lb"},{"name":"aws","url":"https://aws.lb"}]"#,
+        )
+        .unwrap();
         assert_eq!(regions.len(), 2);
         assert_eq!(regions[0].name, "gcp");
         assert!(parse_regions("not json").is_err());
@@ -91,7 +100,10 @@ mod tests {
             rl("near", Some(8.0)),
             rl("mid", Some(40.0)),
         ]);
-        assert_eq!(ranked.iter().map(|r| r.name.as_str()).collect::<Vec<_>>(), ["near", "mid", "far", "down"]);
+        assert_eq!(
+            ranked.iter().map(|r| r.name.as_str()).collect::<Vec<_>>(),
+            ["near", "mid", "far", "down"]
+        );
         assert_eq!(closest(&ranked).unwrap().name, "near");
     }
 
@@ -99,5 +111,21 @@ mod tests {
     fn closest_none_when_all_unreachable() {
         let ranked = rank(vec![rl("a", None), rl("b", None)]);
         assert!(closest(&ranked).is_none());
+    }
+
+    #[test]
+    fn generated_interfaces_are_importable() {
+        let request = fiducia_interfaces::LockAcquireManyRequest {
+            keys: vec!["orders/42".to_string(), "inventory/sku-7".to_string()],
+            holder: Some("worker-a".to_string()),
+            ttl_ms: Some(30_000),
+            wait: Some(false),
+        };
+
+        assert_eq!(request.keys.len(), 2);
+        assert!(matches!(
+            fiducia_interfaces::ProposeErrorReason::NotLeader,
+            fiducia_interfaces::ProposeErrorReason::NotLeader
+        ));
     }
 }
