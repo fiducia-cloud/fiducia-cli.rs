@@ -20,14 +20,10 @@ WORKDIR /build/fiducia-cli.rs
 RUN cargo build --release --bin fiducia \
     && strip target/release/fiducia
 
-FROM debian:bookworm-slim
+FROM gcr.io/distroless/cc-debian12:nonroot
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
-    && useradd --uid 10001 --user-group --home-dir /nonexistent --shell /usr/sbin/nologin fiducia
+COPY --from=build --chown=65532:65532 /build/fiducia-cli.rs/target/release/fiducia /usr/local/bin/fiducia
 
-COPY --from=build --chown=10001:10001 /build/fiducia-cli.rs/target/release/fiducia /usr/local/bin/fiducia
-
-USER 10001:10001
+USER 65532:65532
 
 ENTRYPOINT ["/usr/local/bin/fiducia"]
