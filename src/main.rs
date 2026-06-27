@@ -39,23 +39,45 @@ fn main() {
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
-            "-h" | "--help" => { print!("{USAGE}"); return; }
-            "--regions" | "-r" => { i += 1; regions_file = arg(&args, i); }
-            "--samples" | "-n" => { i += 1; samples = arg(&args, i).parse().unwrap_or(samples); }
-            "--path" | "-p" => { i += 1; path = arg(&args, i); }
+            "-h" | "--help" => {
+                print!("{USAGE}");
+                return;
+            }
+            "--regions" | "-r" => {
+                i += 1;
+                regions_file = arg(&args, i);
+            }
+            "--samples" | "-n" => {
+                i += 1;
+                samples = arg(&args, i).parse().unwrap_or(samples);
+            }
+            "--path" | "-p" => {
+                i += 1;
+                path = arg(&args, i);
+            }
             s if !s.starts_with('-') => cmd = s.to_string(),
-            other => { eprintln!("unknown flag: {other}\n"); print!("{USAGE}"); std::process::exit(2); }
+            other => {
+                eprintln!("unknown flag: {other}\n");
+                print!("{USAGE}");
+                std::process::exit(2);
+            }
         }
         i += 1;
     }
 
     let json = match std::fs::read_to_string(&regions_file) {
         Ok(j) => j,
-        Err(e) => { eprintln!("cannot read regions file {regions_file}: {e}"); std::process::exit(1); }
+        Err(e) => {
+            eprintln!("cannot read regions file {regions_file}: {e}");
+            std::process::exit(1);
+        }
     };
     let regions = match parse_regions(&json) {
         Ok(r) => r,
-        Err(e) => { eprintln!("invalid regions file: {e}"); std::process::exit(1); }
+        Err(e) => {
+            eprintln!("invalid regions file: {e}");
+            std::process::exit(1);
+        }
     };
 
     match cmd.as_str() {
@@ -66,7 +88,9 @@ fn main() {
             }
         }
         "region" | "closest" => {
-            let agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(2)).build();
+            let agent = ureq::AgentBuilder::new()
+                .timeout(Duration::from_secs(2))
+                .build();
             let mut results = Vec::new();
             for r in &regions {
                 let target = format!("{}{}", r.url.trim_end_matches('/'), path);
@@ -86,22 +110,44 @@ fn main() {
                 });
             }
             let ranked = rank(results);
-            println!("{:<16} {:>10}  {:>7}  url", "region", "median ms", "ok/total");
+            println!(
+                "{:<16} {:>10}  {:>7}  url",
+                "region", "median ms", "ok/total"
+            );
             for r in &ranked {
-                let lat = r.median_ms.map(|m| format!("{m:.1}")).unwrap_or_else(|| "—".into());
-                println!("{:<16} {:>10}  {:>3}/{:<3}  {}", r.name, lat, r.ok, r.total, r.url);
+                let lat = r
+                    .median_ms
+                    .map(|m| format!("{m:.1}"))
+                    .unwrap_or_else(|| "—".into());
+                println!(
+                    "{:<16} {:>10}  {:>3}/{:<3}  {}",
+                    r.name, lat, r.ok, r.total, r.url
+                );
             }
             match closest(&ranked) {
-                Some(c) => println!("\nclosest: {}  (pass it as  X-Fiducia-Region: {})", c.name, c.name),
-                None => { eprintln!("\nno region was reachable"); std::process::exit(1); }
+                Some(c) => println!(
+                    "\nclosest: {}  (pass it as  X-Fiducia-Region: {})",
+                    c.name, c.name
+                ),
+                None => {
+                    eprintln!("\nno region was reachable");
+                    std::process::exit(1);
+                }
             }
         }
-        other => { eprintln!("unknown command: {other}\n"); print!("{USAGE}"); std::process::exit(2); }
+        other => {
+            eprintln!("unknown command: {other}\n");
+            print!("{USAGE}");
+            std::process::exit(2);
+        }
     }
 }
 
 fn arg(args: &[String], i: usize) -> String {
-    args.get(i).cloned().unwrap_or_else(|| { eprintln!("missing value for flag"); std::process::exit(2); })
+    args.get(i).cloned().unwrap_or_else(|| {
+        eprintln!("missing value for flag");
+        std::process::exit(2);
+    })
 }
 
 /// Read an env var (one of the names declared in `.cli-flags.toml`) or fall back
