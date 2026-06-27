@@ -1,0 +1,83 @@
+# fiducia-cli
+
+The `fiducia` command-line tool for [fiducia.cloud](https://fiducia.cloud).
+Today it helps clients pick the **region** to route to.
+
+## Why region (not IP)
+
+Clients pick a **region** (a stable enum value) — not their IP, which changes
+with NAT/mobility/proxies. A client passes the chosen region with each request as
+the `X-Fiducia-Region` header; the load balancer maps it to that region's shard
+band so the owning shard's leader is geographically close.
+
+The selectable region set is **generated** by `fiducia-infra` from `topology.toml`
+into `edge-regions.json` (`[{ "name", "url" }]`) — one source of truth, never
+hand-maintained.
+
+## Usage
+
+```sh
+# list the selectable regions (the enum)
+fiducia regions --regions edge-regions.json
+
+# probe every region and print the closest by median latency
+fiducia region  --regions edge-regions.json --samples 5
+# region            median ms  ok/total  url
+# us-east                 7.4    5/5    https://aws.lb.fiducia.cloud
+# eu-central             82.1    5/5    https://hetzner.lb.fiducia.cloud
+#
+# closest: us-east  (pass it as  X-Fiducia-Region: us-east)
+```
+
+`--regions` defaults to `$FIDUCIA_REGIONS_FILE` or `./edge-regions.json`;
+`--path` (default `/healthz`) is the endpoint probed; `--samples` (default 5).
+
+## Region routing model
+
+| Key kind | Routing | Why |
+|----------|---------|-----|
+| **region-scoped** (region-local data) | `X-Fiducia-Region` → that region's shard band (`shard_for_region`) | low-latency, leader nearby |
+| **global** (one lock worldwide) | region-agnostic `shard_for`; leader placed near demand via **leader affinity** | correctness — one shard everywhere |
+
+So region selects locality for region-scoped data; global coordination stays a
+single shard with its leader pulled close by affinity. See
+[`fiducia-routing`](https://github.com/fiducia-cloud/fiducia-routing.rs).
+
+## Configuration — flags-2-env
+
+Flags are declared once in [`.cli-flags.toml`](.cli-flags.toml), the
+[flags-2-env](https://github.com/ORESoftware/flags-2-env) config format. Each flag
+maps to an env var, and the merge rule is **env first, CLI flags override**
+(`combined = { ...env, ...parsed_cli }`):
+
+```sh
+export FIDUCIA_REGIONS_FILE=edge-regions.json   # = --regions / -r
+export FIDUCIA_SAMPLES=7                          # = --samples / -n
+fiducia region                                    # uses env; flags still override
+fiducia region -n 3                               # CLI wins over FIDUCIA_SAMPLES
+```
+
+The CLI today reads those env vars directly (the flags-2-env contract). To parse
+argv with the upstream **C-backed** client instead, add its crate and point it at
+the prebuilt library:
+
+```toml
+# Cargo.toml — official FFI client (needs libflags2env.{so,dylib} at runtime)
+# flags2env = { git = "https://github.com/ORESoftware/flags-2-env" }  # package: flags2env
+```
+
+`.cli-flags.toml` is the same file either way, so switching is drop-in.
+
+## Build / install
+
+```sh
+cargo build --release      # target/release/fiducia
+cargo test                 # ranking/median/parse unit tests
+```
+
+## Layout
+
+| File | Responsibility |
+|------|----------------|
+| `src/lib.rs` | region parsing + latency ranking (pure, unit-tested) |
+| `src/main.rs`| arg parsing + the latency probe (ureq) |

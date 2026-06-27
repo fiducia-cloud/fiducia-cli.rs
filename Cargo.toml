@@ -1,0 +1,22 @@
+[package]
+name = "fiducia-cli"
+version = "0.1.0"
+edition = "2021"
+description = "Command-line tool for fiducia.cloud — find the closest region, etc."
+
+[lib]
+name = "fiducia_cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "fiducia"
+path = "src/main.rs"
+
+[dependencies]
+ureq = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Flags are declared in .cli-flags.toml (flags-2-env format) and read from env
+# (CLI overrides env). To parse argv with the upstream C-backed client instead,
+# enable this (it loads libflags2env.{so,dylib} at runtime via libloading):
+# flags2env = { git = "https://github.com/ORESoftware/flags-2-env" }
