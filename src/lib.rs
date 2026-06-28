@@ -5,10 +5,10 @@
 //! from `topology.toml`, so the selectable region set is generated from one
 //! place, never hand-maintained here.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// A selectable region: a public name + the endpoint to probe.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Region {
     pub name: String,
     pub url: String,
