@@ -137,6 +137,36 @@ mod tests {
     }
 
     #[test]
+    fn truthy_accepts_common_yes_values() {
+        for y in ["1", "true", "TRUE", "Yes", " on "] {
+            assert!(truthy(y), "{y:?} should be truthy");
+        }
+        for n in ["", "0", "false", "no", "off", "nope"] {
+            assert!(!truthy(n), "{n:?} should be falsey");
+        }
+    }
+
+    #[test]
+    fn select_regions_filters_or_errors() {
+        let regions = parse_regions(
+            r#"[{"name":"gcp","url":"https://gcp.lb"},{"name":"aws","url":"https://aws.lb"}]"#,
+        )
+        .unwrap();
+
+        // empty `only` => unchanged
+        assert_eq!(select_regions(regions.clone(), "").unwrap().len(), 2);
+
+        // matching name => just that one
+        let aws = select_regions(regions.clone(), "aws").unwrap();
+        assert_eq!(aws.len(), 1);
+        assert_eq!(aws[0].name, "aws");
+
+        // no match => error mentioning the name
+        let err = select_regions(regions, "nope").unwrap_err();
+        assert!(err.contains("nope"));
+    }
+
+    #[test]
     fn generated_interfaces_are_importable() {
         let request = fiducia_interfaces::LockAcquireManyRequest {
             keys: vec!["orders/42".to_string(), "inventory/sku-7".to_string()],
