@@ -11,19 +11,24 @@
 
 use std::time::{Duration, Instant};
 
-use fiducia_cli::{closest, median, parse_regions, rank, RegionLatency};
+use fiducia_cli::{closest, median, parse_regions, rank, select_regions, truthy, RegionLatency};
 
 const USAGE: &str = "\
 fiducia — fiducia.cloud CLI
 
 USAGE:
-  fiducia regions  [-r <file>]
-  fiducia region   [-r <file>] [-n <samples>] [-p <path>]   (alias: closest)
+  fiducia regions  [-r <file>] [-o <name>] [-j]
+  fiducia region   [-r <file>] [-n <samples>] [-p <path>] [-t <ms>] [-w <n>] [-o <name>] [-j]
+                                                           (alias: closest)
 
 OPTIONS (flag | short | env — flags override env; declared in .cli-flags.toml):
   --regions | -r <file>  regions JSON [{name,url}]   FIDUCIA_REGIONS_FILE  (default ./edge-regions.json)
   --samples | -n <n>     probes per region           FIDUCIA_SAMPLES       (default 5)
   --path    | -p <p>     health path to probe        FIDUCIA_HEALTH_PATH   (default /healthz)
+  --timeout | -t <ms>    per-probe timeout (ms)       FIDUCIA_TIMEOUT_MS    (default 2000)
+  --warmup  | -w <n>     discard first N probes       FIDUCIA_WARMUP        (default 0)
+  --only    | -o <name>  probe only this region       FIDUCIA_ONLY_REGION   (default all)
+  --json    | -j         machine-readable JSON output FIDUCIA_JSON          (default off)
 ";
 
 fn main() {
