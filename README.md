@@ -32,6 +32,17 @@ fiducia region  --regions edge-regions.json --samples 5
 `--regions` defaults to `$FIDUCIA_REGIONS_FILE` or `./edge-regions.json`;
 `--path` (default `/healthz`) is the endpoint probed; `--samples` (default 5).
 
+Probing knobs: `--timeout`/`-t` ms per probe (default 2000 — a slower region
+counts as unreachable), `--warmup`/`-w` discards the first N probes per region so
+the TCP/TLS handshake doesn't skew the median (default 0), and `--only`/`-o`
+restricts to a single named region. `--json`/`-j` swaps the table for JSON —
+`regions` emits `[{name,url}]`, `region` emits `{ regions: [...], closest }` — so
+the output composes straight back into the same shape the CLI consumes:
+
+```sh
+fiducia region --json | jq -r .closest          # -> us-east
+```
+
 ## Region routing model
 
 | Key kind | Routing | Why |
