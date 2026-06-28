@@ -5,6 +5,8 @@
 //! from `topology.toml`, so the selectable region set is generated from one
 //! place, never hand-maintained here.
 
+use std::collections::HashSet;
+
 use serde::Deserialize;
 
 /// A selectable region: a public name + the endpoint to probe.
@@ -16,11 +18,39 @@ pub struct Region {
 
 /// Parse the regions list (the `edge-regions.json` array).
 pub fn parse_regions(json: &str) -> Result<Vec<Region>, String> {
-    serde_json::from_str::<Vec<Region>>(json).map_err(|e| e.to_string())
+    let mut regions = serde_json::from_str::<Vec<Region>>(json).map_err(|e| e.to_string())?;
+    let mut seen = HashSet::new();
+
+    for (index, region) in regions.iter_mut().enumerate() {
+        region.name = region.name.trim().to_string();
+        region.url = region.url.trim().to_string();
+
+        if region.name.is_empty() {
+            return Err(format!("region {index} has an empty name"));
+        }
+
+        if region.url.is_empty() {
+            return Err(format!("region {} has an empty url", region.name));
+        }
+
+        if !(region.url.starts_with("https://") || region.url.starts_with("http://")) {
+            return Err(format!(
+                "region {} url must start with http(s)",
+                region.name
+            ));
+        }
+
+        if !seen.insert(region.name.clone()) {
+            return Err(format!("duplicate region name: {}", region.name));
+        }
+    }
+
+    Ok(regions)
 }
 
 /// Median of latency samples in ms. `None` if there are no samples.
 pub fn median(mut xs: Vec<f64>) -> Option<f64> {
+    xs.retain(|x| x.is_finite());
     if xs.is_empty() {
         return None;
     }
@@ -82,6 +112,15 @@ mod tests {
     }
 
     #[test]
+    fn median_ignores_non_finite_samples() {
+        assert_eq!(median(vec![f64::NAN, f64::INFINITY]), None);
+        assert_eq!(
+            median(vec![10.0, f64::NAN, 30.0, f64::NEG_INFINITY]),
+            Some(20.0)
+        );
+    }
+
+    #[test]
     fn parse_regions_reads_edge_format() {
         let regions = parse_regions(
             r#"[{"name":"gcp","url":"https://gcp.lb"},{"name":"aws","url":"https://aws.lb"}]"#,
@@ -90,6 +129,31 @@ mod tests {
         assert_eq!(regions.len(), 2);
         assert_eq!(regions[0].name, "gcp");
         assert!(parse_regions("not json").is_err());
+    }
+
+    #[test]
+    fn parse_regions_trims_names_and_rejects_duplicates() {
+        let regions = parse_regions(r#"[{"name":" us-east ","url":" https://aws.lb "}]"#).unwrap();
+        assert_eq!(regions[0].name, "us-east");
+        assert_eq!(regions[0].url, "https://aws.lb");
+
+        let err = parse_regions(
+            r#"[{"name":"us-east","url":"https://a"},{"name":"us-east","url":"https://b"}]"#,
+        )
+        .unwrap_err();
+        assert!(err.contains("duplicate region name"));
+    }
+
+    #[test]
+    fn parse_regions_rejects_blank_names_and_non_http_urls() {
+        let blank_name = parse_regions(r#"[{"name":" ","url":"https://aws.lb"}]"#).unwrap_err();
+        assert!(blank_name.contains("empty name"));
+
+        let blank_url = parse_regions(r#"[{"name":"aws","url":" "}]"#).unwrap_err();
+        assert!(blank_url.contains("empty url"));
+
+        let non_http = parse_regions(r#"[{"name":"aws","url":"ssh://aws.lb"}]"#).unwrap_err();
+        assert!(non_http.contains("http(s)"));
     }
 
     #[test]
