@@ -87,39 +87,54 @@ fn main() {
         i += 1;
     }
 
-    let json = match std::fs::read_to_string(&regions_file) {
+    let json_txt = match std::fs::read_to_string(&regions_file) {
         Ok(j) => j,
         Err(e) => {
             eprintln!("cannot read regions file {regions_file}: {e}");
             std::process::exit(1);
         }
     };
-    let regions = match parse_regions(&json) {
+    let regions = match parse_regions(&json_txt) {
         Ok(r) => r,
         Err(e) => {
             eprintln!("invalid regions file: {e}");
             std::process::exit(1);
         }
     };
+    // --only narrows to a single region (and fails loudly if it matches none).
+    let regions = match select_regions(regions, &only) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+    };
 
     match cmd.as_str() {
         "regions" => {
-            println!("selectable regions ({}):", regions.len());
-            for r in &regions {
-                println!("  {:<16} {}", r.name, r.url);
+            if json {
+                println!("{}", serde_json::to_string_pretty(&regions).unwrap());
+            } else {
+                println!("selectable regions ({}):", regions.len());
+                for r in &regions {
+                    println!("  {:<16} {}", r.name, r.url);
+                }
             }
         }
         "region" | "closest" => {
             let agent = ureq::AgentBuilder::new()
-                .timeout(Duration::from_secs(2))
+                .timeout(Duration::from_millis(timeout_ms))
                 .build();
             let mut results = Vec::new();
             for r in &regions {
                 let target = format!("{}{}", r.url.trim_end_matches('/'), path);
+                // Probe `warmup + samples` times; the first `warmup` calls prime
+                // the TCP/TLS connection and are not measured.
                 let mut ms = Vec::new();
-                for _ in 0..samples {
+                for n in 0..(warmup + samples) {
                     let t = Instant::now();
-                    if agent.get(&target).call().is_ok() {
+                    let ok = agent.get(&target).call().is_ok();
+                    if n >= warmup && ok {
                         ms.push(t.elapsed().as_secs_f64() * 1000.0);
                     }
                 }
@@ -132,29 +147,39 @@ fn main() {
                 });
             }
             let ranked = rank(results);
-            println!(
-                "{:<16} {:>10}  {:>7}  url",
-                "region", "median ms", "ok/total"
-            );
-            for r in &ranked {
-                let lat = r
-                    .median_ms
-                    .map(|m| format!("{m:.1}"))
-                    .unwrap_or_else(|| "—".into());
+            let nearest = closest(&ranked).map(|c| c.name.clone());
+
+            if json {
+                let out = serde_json::json!({
+                    "regions": &ranked,
+                    "closest": nearest,
+                });
+                println!("{}", serde_json::to_string_pretty(&out).unwrap());
+            } else {
                 println!(
-                    "{:<16} {:>10}  {:>3}/{:<3}  {}",
-                    r.name, lat, r.ok, r.total, r.url
+                    "{:<16} {:>10}  {:>7}  url",
+                    "region", "median ms", "ok/total"
                 );
-            }
-            match closest(&ranked) {
-                Some(c) => println!(
-                    "\nclosest: {}  (pass it as  X-Fiducia-Region: {})",
-                    c.name, c.name
-                ),
-                None => {
-                    eprintln!("\nno region was reachable");
-                    std::process::exit(1);
+                for r in &ranked {
+                    let lat = r
+                        .median_ms
+                        .map(|m| format!("{m:.1}"))
+                        .unwrap_or_else(|| "—".into());
+                    println!(
+                        "{:<16} {:>10}  {:>3}/{:<3}  {}",
+                        r.name, lat, r.ok, r.total, r.url
+                    );
                 }
+                match &nearest {
+                    Some(name) => println!(
+                        "\nclosest: {name}  (pass it as  X-Fiducia-Region: {name})"
+                    ),
+                    None => eprintln!("\nno region was reachable"),
+                }
+            }
+            // Unreachable everywhere is a failure in either output mode.
+            if nearest.is_none() {
+                std::process::exit(1);
             }
         }
         other => {
