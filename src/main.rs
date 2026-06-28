@@ -40,6 +40,10 @@ fn main() {
     let mut regions_file = env_or("FIDUCIA_REGIONS_FILE", "edge-regions.json");
     let mut samples: usize = env_or("FIDUCIA_SAMPLES", "5").parse().unwrap_or(5);
     let mut path = env_or("FIDUCIA_HEALTH_PATH", "/healthz");
+    let mut timeout_ms: u64 = env_or("FIDUCIA_TIMEOUT_MS", "2000").parse().unwrap_or(2000);
+    let mut warmup: usize = env_or("FIDUCIA_WARMUP", "0").parse().unwrap_or(0);
+    let mut only = env_or("FIDUCIA_ONLY_REGION", "");
+    let mut json = truthy(&env_or("FIDUCIA_JSON", ""));
 
     let mut i = 0;
     while i < args.len() {
@@ -60,6 +64,19 @@ fn main() {
                 i += 1;
                 path = arg(&args, i);
             }
+            "--timeout" | "-t" => {
+                i += 1;
+                timeout_ms = arg(&args, i).parse().unwrap_or(timeout_ms);
+            }
+            "--warmup" | "-w" => {
+                i += 1;
+                warmup = arg(&args, i).parse().unwrap_or(warmup);
+            }
+            "--only" | "-o" => {
+                i += 1;
+                only = arg(&args, i);
+            }
+            "--json" | "-j" => json = true,
             s if !s.starts_with('-') => cmd = s.to_string(),
             other => {
                 eprintln!("unknown flag: {other}\n");
