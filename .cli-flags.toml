@@ -28,3 +28,35 @@ short = "p"
 type = "string"
 default = "/healthz"
 help = "Health path probed on each region endpoint."
+
+[flags.timeout]
+env = "FIDUCIA_TIMEOUT_MS"
+aliases = ["timeout"]
+short = "t"
+type = "integer"
+default = 2000
+help = "Per-probe timeout in milliseconds; a slower region counts as unreachable."
+
+[flags.warmup]
+env = "FIDUCIA_WARMUP"
+aliases = ["warmup"]
+short = "w"
+type = "integer"
+default = 0
+help = "Discard the first N probes per region (TCP/TLS handshake warm-up) before measuring."
+
+[flags.only]
+env = "FIDUCIA_ONLY_REGION"
+aliases = ["only"]
+short = "o"
+type = "string"
+default = ""
+help = "Probe only the region with this name (empty = all regions)."
+
+[flags.json]
+env = "FIDUCIA_JSON"
+aliases = ["json"]
+short = "j"
+type = "boolean"
+default = false
+help = "Emit machine-readable JSON instead of the human table."
