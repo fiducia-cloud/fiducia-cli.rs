@@ -34,7 +34,7 @@ pub fn median(mut xs: Vec<f64>) -> Option<f64> {
 }
 
 /// A region's measured latency. `median_ms == None` means unreachable.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct RegionLatency {
     pub name: String,
     pub url: String,
