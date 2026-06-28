@@ -59,6 +59,29 @@ pub fn closest(ranked: &[RegionLatency]) -> Option<&RegionLatency> {
     ranked.iter().find(|r| r.median_ms.is_some())
 }
 
+/// Interpret a `--json`-style boolean env value. Truthy: `1/true/yes/on`
+/// (any case); everything else (incl. empty/unset upstream) is false.
+pub fn truthy(s: &str) -> bool {
+    matches!(
+        s.trim().to_ascii_lowercase().as_str(),
+        "1" | "true" | "yes" | "on"
+    )
+}
+
+/// Restrict `regions` to the single one named `only` (the `--only` flag). An
+/// empty `only` means "no filter" and returns every region. Returns an error
+/// string naming `only` when it matches nothing, so the caller can fail loudly.
+pub fn select_regions(regions: Vec<Region>, only: &str) -> Result<Vec<Region>, String> {
+    if only.is_empty() {
+        return Ok(regions);
+    }
+    let kept: Vec<Region> = regions.into_iter().filter(|r| r.name == only).collect();
+    if kept.is_empty() {
+        return Err(format!("no region named {only:?}"));
+    }
+    Ok(kept)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
