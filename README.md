@@ -64,6 +64,10 @@ maps to an env var, and the merge rule is **env first, CLI flags override**
 ```sh
 export FIDUCIA_REGIONS_FILE=edge-regions.json   # = --regions / -r
 export FIDUCIA_SAMPLES=7                          # = --samples / -n
+export FIDUCIA_TIMEOUT_MS=1500                    # = --timeout / -t
+export FIDUCIA_WARMUP=1                           # = --warmup  / -w
+export FIDUCIA_ONLY_REGION=us-east               # = --only    / -o
+export FIDUCIA_JSON=1                             # = --json    / -j
 fiducia region                                    # uses env; flags still override
 fiducia region -n 3                               # CLI wins over FIDUCIA_SAMPLES
 ```
