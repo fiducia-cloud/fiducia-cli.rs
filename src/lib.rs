@@ -5,10 +5,10 @@
 //! from `topology.toml`, so the selectable region set is generated from one
 //! place, never hand-maintained here.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// A selectable region: a public name + the endpoint to probe.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Region {
     pub name: String,
     pub url: String,
@@ -34,7 +34,7 @@ pub fn median(mut xs: Vec<f64>) -> Option<f64> {
 }
 
 /// A region's measured latency. `median_ms == None` means unreachable.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct RegionLatency {
     pub name: String,
     pub url: String,
@@ -57,6 +57,29 @@ pub fn rank(mut rs: Vec<RegionLatency>) -> Vec<RegionLatency> {
 /// The closest *reachable* region after ranking, if any.
 pub fn closest(ranked: &[RegionLatency]) -> Option<&RegionLatency> {
     ranked.iter().find(|r| r.median_ms.is_some())
+}
+
+/// Interpret a `--json`-style boolean env value. Truthy: `1/true/yes/on`
+/// (any case); everything else (incl. empty/unset upstream) is false.
+pub fn truthy(s: &str) -> bool {
+    matches!(
+        s.trim().to_ascii_lowercase().as_str(),
+        "1" | "true" | "yes" | "on"
+    )
+}
+
+/// Restrict `regions` to the single one named `only` (the `--only` flag). An
+/// empty `only` means "no filter" and returns every region. Returns an error
+/// string naming `only` when it matches nothing, so the caller can fail loudly.
+pub fn select_regions(regions: Vec<Region>, only: &str) -> Result<Vec<Region>, String> {
+    if only.is_empty() {
+        return Ok(regions);
+    }
+    let kept: Vec<Region> = regions.into_iter().filter(|r| r.name == only).collect();
+    if kept.is_empty() {
+        return Err(format!("no region named {only:?}"));
+    }
+    Ok(kept)
 }
 
 #[cfg(test)]
@@ -111,6 +134,36 @@ mod tests {
     fn closest_none_when_all_unreachable() {
         let ranked = rank(vec![rl("a", None), rl("b", None)]);
         assert!(closest(&ranked).is_none());
+    }
+
+    #[test]
+    fn truthy_accepts_common_yes_values() {
+        for y in ["1", "true", "TRUE", "Yes", " on "] {
+            assert!(truthy(y), "{y:?} should be truthy");
+        }
+        for n in ["", "0", "false", "no", "off", "nope"] {
+            assert!(!truthy(n), "{n:?} should be falsey");
+        }
+    }
+
+    #[test]
+    fn select_regions_filters_or_errors() {
+        let regions = parse_regions(
+            r#"[{"name":"gcp","url":"https://gcp.lb"},{"name":"aws","url":"https://aws.lb"}]"#,
+        )
+        .unwrap();
+
+        // empty `only` => unchanged
+        assert_eq!(select_regions(regions.clone(), "").unwrap().len(), 2);
+
+        // matching name => just that one
+        let aws = select_regions(regions.clone(), "aws").unwrap();
+        assert_eq!(aws.len(), 1);
+        assert_eq!(aws[0].name, "aws");
+
+        // no match => error mentioning the name
+        let err = select_regions(regions, "nope").unwrap_err();
+        assert!(err.contains("nope"));
     }
 
     #[test]
