@@ -20,7 +20,5 @@ serde_json = "1"
 # Shared API payload/error contract — the CLI decodes node responses
 # (KvEntry, LockGrant, ProposeError, …) into these shared types.
 fiducia-interfaces = { path = "../fiducia-interfaces/generated/rust" }
-# Flags are declared in .cli-flags.toml (flags-2-env format) and read from env
-# (CLI overrides env). To parse argv with the upstream C-backed client instead,
-# enable this (it loads libflags2env.{so,dylib} at runtime via libloading):
-# flags2env = { git = "https://github.com/ORESoftware/flags-2-env" }
+# Flags are declared in .cli-flags.toml and converted to environment overrides
+# by scripts/with-flags2env.sh using the pinned upstream submodule.

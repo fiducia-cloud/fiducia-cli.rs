@@ -171,9 +171,9 @@ fn main() {
                     );
                 }
                 match &nearest {
-                    Some(name) => println!(
-                        "\nclosest: {name}  (pass it as  X-Fiducia-Region: {name})"
-                    ),
+                    Some(name) => {
+                        println!("\nclosest: {name}  (pass it as  X-Fiducia-Region: {name})")
+                    }
                     None => eprintln!("\nno region was reachable"),
                 }
             }

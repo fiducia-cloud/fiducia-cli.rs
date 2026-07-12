@@ -72,16 +72,17 @@ fiducia region                                    # uses env; flags still overri
 fiducia region -n 3                               # CLI wins over FIDUCIA_SAMPLES
 ```
 
-The CLI today reads those env vars directly (the flags-2-env contract). To parse
-argv with the upstream **C-backed** client instead, add its crate and point it at
-the prebuilt library:
+The repository pins the upstream C implementation as a submodule. The launcher
+converts flags to environment overrides before starting the Rust CLI:
 
-```toml
-# Cargo.toml — official FFI client (needs libflags2env.{so,dylib} at runtime)
-# flags2env = { git = "https://github.com/ORESoftware/flags-2-env" }  # package: flags2env
+```sh
+git submodule update --init --recursive
+make -C vendor/flags-2-env all
+scripts/with-flags2env.sh --samples=3 -- cargo run --locked -- region
 ```
 
-`.cli-flags.toml` is the same file either way, so switching is drop-in.
+The Rust command reads the declared environment variables, so the launcher is
+the single flag parser and ordinary environment-only deployment remains valid.
 
 ## Build / install
 
