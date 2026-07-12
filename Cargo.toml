@@ -1,3 +1,4 @@
+# Cargo manifest for fiducia-cli: builds the `fiducia` binary and its library half.
 [package]
 name = "fiducia-cli"
 version = "0.1.0"

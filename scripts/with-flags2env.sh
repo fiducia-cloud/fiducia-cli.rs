@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Launcher: parse CLI flags via the flags-2-env submodule into env vars, then exec
+# the given command (e.g. `cargo run -- region`) with those overrides applied.
 set -euo pipefail
 
 root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
