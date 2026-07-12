@@ -1,3 +1,4 @@
+# CI: fmt, clippy, test (bin + lib) and cargo-audit for the fiducia CLI.
 name: ci
 
 on:
