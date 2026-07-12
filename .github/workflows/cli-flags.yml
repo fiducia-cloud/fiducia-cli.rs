@@ -1,3 +1,4 @@
+# Audits .cli-flags.toml against the pinned flags-2-env submodule on changes.
 name: CLI flags
 
 on:
