@@ -108,8 +108,24 @@ the single flag parser and ordinary environment-only deployment remains valid.
 ## Build / install
 
 ```sh
-cargo build --release      # target/release/fiducia
-cargo test                 # ranking/median/parse unit tests
+cargo build --locked --release      # target/release/fiducia
+cargo test --locked                 # ranking/median/parse unit tests
+```
+
+### Reproducible interfaces dependency
+
+The CLI consumes generated contracts from the sibling `fiducia-interfaces`
+repository. CI and the Dockerfile pin it to commit
+`bbd8b52ce729ec34b0a9bff4dda6d0a448181797` instead of a moving branch. The
+Docker build checks that commit out detached and verifies that the resulting
+full `HEAD` equals `INTERFACES_SHA`; branches, tags, and abbreviated hashes are
+rejected. Update the Dockerfile argument and CI checkout `ref` together when
+adopting a reviewed contracts commit.
+
+```sh
+docker build \
+  --build-arg INTERFACES_SHA=<40-character-commit-sha> \
+  -t fiducia-cli:local .
 ```
 
 ## Layout
