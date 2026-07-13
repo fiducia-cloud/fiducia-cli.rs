@@ -8,7 +8,7 @@ RUN apt-get update \
 
 WORKDIR /build
 
-ARG INTERFACES_SHA=bbd8b52ce729ec34b0a9bff4dda6d0a448181797
+ARG INTERFACES_SHA=5f2c5279ee19941024455b2843256872485bac82
 
 # Fetch the path dependency by immutable commit, detach it, and fail closed if
 # the resulting checkout is not the requested full SHA.
