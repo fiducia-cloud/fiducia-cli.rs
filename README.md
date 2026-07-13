@@ -116,7 +116,7 @@ cargo test --locked                 # ranking/median/parse unit tests
 
 The CLI consumes generated contracts from the sibling `fiducia-interfaces`
 repository. CI and the Dockerfile pin it to commit
-`5f2c5279ee19941024455b2843256872485bac82` instead of a moving branch. The
+`487e470c45ab5851e8f6f3b1dc048fe067fbf408` instead of a moving branch. The
 Docker build checks that commit out detached and verifies that the resulting
 full `HEAD` equals `INTERFACES_SHA`; branches, tags, and abbreviated hashes are
 rejected. Update the Dockerfile argument and CI checkout `ref` together when
