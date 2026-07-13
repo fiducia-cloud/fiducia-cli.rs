@@ -84,6 +84,27 @@ scripts/with-flags2env.sh --samples=3 -- cargo run --locked -- region
 The Rust command reads the declared environment variables, so the launcher is
 the single flag parser and ordinary environment-only deployment remains valid.
 
+## Security posture
+
+- **No credentials handled.** The CLI performs only *unauthenticated* HTTPS/HTTP
+  `GET` probes of each region's health path; it stores and transmits no auth
+  tokens, passwords, or secrets. Every configuration value it reads is a
+  non-secret operational knob (regions-file path, sample count, timeout, warm-up,
+  region filter, JSON toggle), so all of them may safely be passed as CLI flags.
+- **Tokens (if ever added) must be env-only.** Should an authenticated endpoint
+  be introduced, any token/credential MUST be supplied via an environment
+  variable, never as a plain CLI flag — a flag value leaks into shell history and
+  the process argument list (`ps`). Such a var must also be listed under
+  `[env].ignore` in [`.cli-flags.toml`](.cli-flags.toml) (and/or marked secret in
+  its `help`) so flags-2-env never surfaces it as a flag.
+- **TLS verification is on.** Probes use `ureq`'s default rustls stack with
+  certificate verification enabled; verification is never disabled and there is no
+  "accept invalid certs" switch.
+- **No secret output.** Diagnostics are limited to the regions-file path, region
+  names/URLs, and parse/IO errors — nothing sensitive is echoed to stdout/stderr.
+- **Dependencies.** `cargo audit` is **clean** (0 advisories over 76 crate
+  dependencies) as of the last audit; there are no accepted/ignored advisories.
+
 ## Build / install
 
 ```sh
