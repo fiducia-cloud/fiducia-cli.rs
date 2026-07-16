@@ -195,6 +195,82 @@ mod tests {
     }
 
     #[test]
+    fn closest_selection_is_deterministic_for_fixed_latencies() {
+        // Three fixed latency profiles, each with a different clearly-nearest
+        // region: the pick must be the expected region every time, and
+        // repeating the ranking on the same input must never change the
+        // answer (ties keep input order — the sort is stable).
+        let profiles: [(&str, Vec<RegionLatency>); 3] = [
+            (
+                "gcp",
+                vec![
+                    rl("gcp", Some(4.0)),
+                    rl("aws", Some(90.0)),
+                    rl("hetzner", Some(55.0)),
+                ],
+            ),
+            (
+                "aws",
+                vec![
+                    rl("gcp", Some(80.0)),
+                    rl("aws", Some(6.0)),
+                    rl("hetzner", Some(70.0)),
+                ],
+            ),
+            (
+                "hetzner",
+                vec![
+                    rl("gcp", Some(60.0)),
+                    rl("aws", Some(75.0)),
+                    rl("hetzner", Some(3.0)),
+                ],
+            ),
+        ];
+        for (expected, latencies) in profiles {
+            for _ in 0..3 {
+                let ranked = rank(latencies.clone());
+                assert_eq!(
+                    closest(&ranked).expect("reachable region").name,
+                    expected,
+                    "profile nearest to {expected} must always pick {expected}"
+                );
+            }
+        }
+
+        // Exact tie: stable sort keeps input order, so the pick is still
+        // deterministic rather than platform/run dependent.
+        let tied = vec![rl("first", Some(10.0)), rl("second", Some(10.0))];
+        for _ in 0..3 {
+            assert_eq!(closest(&rank(tied.clone())).unwrap().name, "first");
+        }
+    }
+
+    #[test]
+    fn rank_tolerates_non_finite_medians_without_panicking() {
+        // Adversarial latency data must not panic the comparator (the
+        // partial_cmp fallback) and must stay deterministic: NaN medians are
+        // still "reachable" (Some) so they sort before unreachable (None),
+        // and finite medians keep their ascending order.
+        let ranked = rank(vec![
+            rl("nan", Some(f64::NAN)),
+            rl("down", None),
+            rl("near", Some(5.0)),
+            rl("far", Some(500.0)),
+        ]);
+        assert_eq!(ranked.len(), 4);
+        assert_eq!(
+            ranked.last().unwrap().name,
+            "down",
+            "unreachable regions must always sort last"
+        );
+        let near_pos = ranked.iter().position(|r| r.name == "near").unwrap();
+        let far_pos = ranked.iter().position(|r| r.name == "far").unwrap();
+        assert!(near_pos < far_pos, "finite medians must stay ascending");
+        // closest() must still return a reachable region, never the None one.
+        assert!(closest(&ranked).unwrap().median_ms.is_some());
+    }
+
+    #[test]
     fn closest_none_when_all_unreachable() {
         let ranked = rank(vec![rl("a", None), rl("b", None)]);
         assert!(closest(&ranked).is_none());
