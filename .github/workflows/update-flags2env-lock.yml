@@ -35,7 +35,7 @@ jobs:
       - name: Format source and update the lockfile
         working-directory: repo
         run: |
-          cargo update -p flags2env
+          cargo update
           cargo fmt --all
       - name: Commit formatted source and lockfile
         working-directory: repo
