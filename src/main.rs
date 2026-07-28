@@ -13,7 +13,7 @@ mod flags;
 
 use std::time::{Duration, Instant};
 
-use fiducia_cli::{RegionLatency, closest, median, parse_regions, rank, select_regions};
+use fiducia_cli::{closest, median, parse_regions, rank, select_regions, RegionLatency};
 
 const USAGE: &str = "\
 fiducia — fiducia.cloud CLI
@@ -45,7 +45,8 @@ fn main() {
     }
 
     let config_path = flags::resolve_config_path().unwrap_or_else(|error| fail_usage(&error));
-    let args = flags::parse_cli_args(&argv, &config_path).unwrap_or_else(|error| fail_usage(&error));
+    let args =
+        flags::parse_cli_args(&argv, &config_path).unwrap_or_else(|error| fail_usage(&error));
 
     let json_txt = match std::fs::read_to_string(&args.regions_file) {
         Ok(json) => json,
@@ -87,11 +88,7 @@ fn main() {
                 .build();
             let mut results = Vec::new();
             for region in &regions {
-                let target = format!(
-                    "{}{}",
-                    region.url.trim_end_matches('/'),
-                    args.health_path
-                );
+                let target = format!("{}{}", region.url.trim_end_matches('/'), args.health_path);
                 // Probe `warmup + samples` times; the first `warmup` calls prime
                 // the TCP/TLS connection and are not measured.
                 let mut milliseconds = Vec::new();

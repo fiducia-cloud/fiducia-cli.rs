@@ -130,11 +130,7 @@ fn bounded_usize(
     min: usize,
     max: usize,
 ) -> Result<usize, String> {
-    let value = flags
-        .get(name)
-        .map(String::as_str)
-        .unwrap_or("")
-        .trim();
+    let value = flags.get(name).map(String::as_str).unwrap_or("").trim();
     let parsed = if value.is_empty() {
         default
     } else {
@@ -155,11 +151,7 @@ fn bounded_u64(
     min: u64,
     max: u64,
 ) -> Result<u64, String> {
-    let value = flags
-        .get(name)
-        .map(String::as_str)
-        .unwrap_or("")
-        .trim();
+    let value = flags.get(name).map(String::as_str).unwrap_or("").trim();
     let parsed = if value.is_empty() {
         default
     } else {
