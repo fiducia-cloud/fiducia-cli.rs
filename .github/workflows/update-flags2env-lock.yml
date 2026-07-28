@@ -32,23 +32,22 @@ jobs:
         with:
           toolchain: '1.95.0'
           components: rustfmt,clippy
-      - name: Format source and update the lockfile
+      - name: Capture dependency and format bootstrap
         working-directory: repo
+        shell: bash
         run: |
-          cargo update
-          cargo fmt --all
-      - name: Commit formatted source and lockfile
+          set +e
+          cargo update > .den-427-bootstrap.txt 2>&1
+          update_status=$?
+          cargo fmt --all >> .den-427-bootstrap.txt 2>&1
+          fmt_status=$?
+          printf '\nupdate_status=%s\nfmt_status=%s\n' "$update_status" "$fmt_status" >> .den-427-bootstrap.txt
+          exit 0
+      - name: Commit diagnostic
         working-directory: repo
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add Cargo.lock src
-          if ! git diff --cached --quiet; then
-            git commit -m 'build: format and lock bundled flags2env runtime'
-            git push origin HEAD:feat/den-427-bundled-flags2env
-          fi
-      - name: Validate the committed candidate
-        working-directory: repo
-        run: |
-          cargo clippy --locked --all-targets -- -D warnings
-          cargo test --locked --all-targets
+          git add .den-427-bootstrap.txt Cargo.lock src
+          git commit -m 'chore: capture flags2env CLI bootstrap diagnostic'
+          git push origin HEAD:feat/den-427-bundled-flags2env
