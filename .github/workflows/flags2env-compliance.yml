@@ -1,0 +1,56 @@
+name: flags2env compliance
+
+on:
+  pull_request:
+    paths:
+      - ".github/fixtures/regions.json"
+      - ".github/scripts/flags2env-artifact-smoke.sh"
+      - ".github/scripts/flags2env-runtime-smoke.sh"
+      - ".github/workflows/flags2env-compliance.yml"
+      - ".cli-flags.toml"
+      - ".dockerignore"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "Dockerfile"
+      - "src/cli_config.rs"
+      - "src/flags.rs"
+      - "src/main.rs"
+  push:
+    branches: [main]
+    paths:
+      - ".github/fixtures/regions.json"
+      - ".github/scripts/flags2env-artifact-smoke.sh"
+      - ".github/scripts/flags2env-runtime-smoke.sh"
+      - ".github/workflows/flags2env-compliance.yml"
+      - ".cli-flags.toml"
+      - ".dockerignore"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "Dockerfile"
+      - "src/cli_config.rs"
+      - "src/flags.rs"
+      - "src/main.rs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flags2env:
+    permissions:
+      contents: read
+    uses: ORESoftware/flags-2-env/.github/workflows/reusable-consumer-compliance.yml@48530ec59759d9ecef5a283f49875de6540d2fab
+    with:
+      tooling_ref: 48530ec59759d9ecef5a283f49875de6540d2fab
+      parser_ref: 43eba9829ece1a12934397a6ebb20755aa26e8db
+      kind: cli
+      command_name: fiducia
+      contract_path: .cli-flags.toml
+      rust_manifest_path: Cargo.toml
+      cargo_lock_path: Cargo.lock
+      runtime_smoke_script: .github/scripts/flags2env-runtime-smoke.sh
+      artifact_smoke_script: .github/scripts/flags2env-artifact-smoke.sh

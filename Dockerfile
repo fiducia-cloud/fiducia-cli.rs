@@ -8,7 +8,7 @@ RUN apt-get update \
 
 WORKDIR /build
 
-ARG INTERFACES_SHA=487e470c45ab5851e8f6f3b1dc048fe067fbf408
+ARG INTERFACES_SHA=bd718cd72d72aa330534f3688f8fb1ce90c19d10
 
 # Fetch the path dependency by immutable commit, detach it, and fail closed if
 # the resulting checkout is not the requested full SHA.
@@ -29,6 +29,7 @@ RUN cargo build --locked --release --bin fiducia \
 FROM gcr.io/distroless/cc-debian12:nonroot@sha256:fccdbb0a547c14e23fcf4ce8ad62ca5d43b4faae8d22cd292f490fef9946c96e
 
 COPY --from=build --chown=65532:65532 /build/fiducia-cli.rs/target/release/fiducia /usr/local/bin/fiducia
+COPY --from=build --chown=65532:65532 /build/fiducia-cli.rs/.cli-flags.toml /usr/local/share/fiducia-cli/.cli-flags.toml
 
 USER 65532:65532
 

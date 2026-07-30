@@ -3,7 +3,7 @@
 # the given command (e.g. `cargo run --locked -- region`) with those overrides applied.
 set -euo pipefail
 
-root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+root="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 flags=()
 while (($#)) && [[ "$1" != "--" ]]; do
   flags+=("$1")
@@ -26,7 +26,7 @@ if [[ -z "$bin" ]]; then
   elif command -v flags2env >/dev/null 2>&1; then
     bin="$(command -v flags2env)"
   else
-    echo "flags2env: build the pinned submodule with 'make -C vendor/flags-2-env all' or set FLAGS2ENV_BIN" >&2
+    echo "flags2env: build the pinned submodule with 'make -C vendor/flags-2-env cli' or set FLAGS2ENV_BIN" >&2
     exit 127
   fi
 fi

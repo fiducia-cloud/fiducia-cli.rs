@@ -9,6 +9,7 @@
 //! `edge-regions.json` that `fiducia-infra` generates from `topology.toml`. The
 //! chosen region's `name` is what a client then passes as `X-Fiducia-Region`.
 
+mod cli_config;
 mod flags;
 
 use std::time::{Duration, Instant};

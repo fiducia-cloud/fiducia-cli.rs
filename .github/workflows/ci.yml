@@ -1,4 +1,4 @@
-# CI: fmt, clippy, test (bin + lib) and cargo-audit for the fiducia CLI.
+# CI: workflow lint, cross-platform Rust checks, and cargo-audit.
 name: ci
 
 on:
@@ -15,9 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  workflow-lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -28,7 +28,23 @@ jobs:
       - name: Validate GitHub Actions
         uses: docker://rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
         with:
-          args: repo/.github/workflows/ci.yml repo/.github/workflows/cli-flags.yml
+          args: repo/.github/workflows/ci.yml repo/.github/workflows/cli-flags.yml repo/.github/workflows/flags2env-compliance.yml
+
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          path: repo
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
@@ -43,6 +59,7 @@ jobs:
         with:
           workspaces: repo
       - name: fmt
+        if: ${{ matrix.os == 'ubuntu-latest' }}
         working-directory: repo
         run: cargo fmt --all -- --check
       - name: clippy
@@ -51,6 +68,26 @@ jobs:
       - name: test
         working-directory: repo
         run: cargo test --locked --all-targets
+
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          path: repo
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          repository: fiducia-cloud/fiducia-interfaces
+          ref: bd718cd72d72aa330534f3688f8fb1ce90c19d10
+          path: fiducia-interfaces
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+        with:
+          toolchain: "1.95.0"
       - uses: taiki-e/install-action@18b1216eba7f8039b0f8d131d5473787f0edce68 # v2
         with:
           tool: cargo-audit@0.22.2

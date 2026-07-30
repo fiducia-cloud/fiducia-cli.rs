@@ -12,6 +12,13 @@ columns = ["options", "env", "type", "default", "description"]
 stop_at_first_positional = false
 allow_unknown = false
 
+[commands.regions]
+help = "List the selectable Fiducia regions."
+
+[commands.region]
+help = "Probe region health endpoints and select the lowest-latency region."
+aliases = ["closest"]
+
 [flags.regions]
 env = "FIDUCIA_REGIONS_FILE"
 aliases = ["regions"]
@@ -65,4 +72,6 @@ aliases = ["json"]
 short = "j"
 type = "bool"
 default = false
+true_aliases = ["1", "yes", "on"]
+false_aliases = ["0", "no", "off"]
 help = "Emit machine-readable JSON instead of the human table."

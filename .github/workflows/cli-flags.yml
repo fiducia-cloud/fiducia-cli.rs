@@ -7,6 +7,7 @@ on:
       - ".github/workflows/cli-flags.yml"
       - ".cli-flags.toml"
       - ".gitmodules"
+      - "src/cli_config.rs"
       - "vendor/flags-2-env"
       - "scripts/with-flags2env.sh"
   push:
@@ -15,8 +16,10 @@ on:
       - ".github/workflows/cli-flags.yml"
       - ".cli-flags.toml"
       - ".gitmodules"
+      - "src/cli_config.rs"
       - "vendor/flags-2-env"
       - "scripts/with-flags2env.sh"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -34,5 +37,13 @@ jobs:
         with:
           persist-credentials: false
           submodules: recursive
-      - run: make -B -C vendor/flags-2-env all
-      - run: vendor/flags-2-env/build/flags2env audit .cli-flags.toml
+      - name: Build the pinned generator
+        run: make -B -C vendor/flags-2-env cli
+      - name: Audit the CLI contract
+        run: vendor/flags-2-env/build/flags2env audit .cli-flags.toml
+      - name: Check the generated Rust interface
+        shell: bash
+        run: |
+          set -euo pipefail
+          diff -u src/cli_config.rs \
+            <(vendor/flags-2-env/build/flags2env generate rust .cli-flags.toml --name CliConfig)

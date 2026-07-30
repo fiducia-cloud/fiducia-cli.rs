@@ -14,7 +14,7 @@ name = "fiducia"
 path = "src/main.rs"
 
 [dependencies]
-flags2env = { git = "https://github.com/ORESoftware/flags-2-env.git", rev = "377bff1a4e7424eb98377997a232ddc0fc700f59" }
+flags2env = { git = "https://github.com/ORESoftware/flags-2-env.git", rev = "43eba9829ece1a12934397a6ebb20755aa26e8db" }
 ureq = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
