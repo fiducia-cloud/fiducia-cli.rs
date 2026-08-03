@@ -51,7 +51,10 @@ fn rank_is_total_and_deterministic_for_every_input_permutation() {
         let ranked = rank(order.to_vec());
         let names: Vec<&str> = ranked.iter().map(|region| region.name.as_str()).collect();
         assert_eq!(names, ["fast", "mid", "slow", "down"]);
-        assert_eq!(closest(&ranked).map(|region| region.name.as_str()), Some("fast"));
+        assert_eq!(
+            closest(&ranked).map(|region| region.name.as_str()),
+            Some("fast")
+        );
     });
 
     assert_eq!(visited, 24, "4! permutations must be exercised");
