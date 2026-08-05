@@ -32,9 +32,9 @@ tag_format = "v{version}"
 smoke_test = "test -x \"$ZED_PKG_TEST_TARGET/target/release/fiducia\" && \"$ZED_PKG_TEST_TARGET/target/release/fiducia\" --help >/dev/null"
 exclude = [".env", ".env.*", ".direnv/**", ".zed/**", ".zed-pack/**", ".vendor/.zed/**", "target/**", "tmp/**", "**/*.log", ".DS_Store"]
 
-[publish.native]
-registry = "crates-io"
-package = "fiducia-cli"
+# Native crates.io publication is intentionally deferred. Cargo.toml has no
+# redistribution license and includes a Git-sourced flags2env dependency, so a
+# public native route would claim an artifact that Cargo cannot publish.
 
 [scripts]
 test = "cargo test --all-targets --locked"
