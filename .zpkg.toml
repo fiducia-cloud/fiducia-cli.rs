@@ -12,7 +12,7 @@ vcs = "git"
 url = "https://github.com/fiducia-cloud/fiducia-cli.rs"
 
 [dependencies]
-"fiducia-cloud/fiducia-clients" = "^0.1.0"
+"fiducia/fiducia-clients" = "^0.1.0"
 "fiducia-cloud/fiducia-interfaces" = "^0.1.0"
 
 [build]
