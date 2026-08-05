@@ -14,7 +14,6 @@ url = "https://github.com/fiducia-cloud/fiducia-cli.rs"
 [dependencies]
 "fiducia-cloud/fiducia-clients" = "^0.1.0"
 "fiducia-cloud/fiducia-interfaces" = "^0.1.0"
-"fiducia-cloud/fiducia-lib" = "^0.1.0"
 
 [build]
 command = "cargo build --release --locked --bin fiducia"
