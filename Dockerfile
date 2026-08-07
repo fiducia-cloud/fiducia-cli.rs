@@ -8,17 +8,9 @@ RUN apt-get update \
 
 WORKDIR /build
 
-ARG INTERFACES_SHA=bd718cd72d72aa330534f3688f8fb1ce90c19d10
-
-# Fetch the path dependency by immutable commit, detach it, and fail closed if
-# the resulting checkout is not the requested full SHA.
-RUN git init fiducia-interfaces \
-    && git -C fiducia-interfaces remote add origin \
-       https://github.com/fiducia-cloud/fiducia-interfaces.git \
-    && git -C fiducia-interfaces fetch --depth 1 origin "$INTERFACES_SHA" \
-    && git -C fiducia-interfaces checkout --detach FETCH_HEAD \
-    && test "$(git -C fiducia-interfaces rev-parse HEAD)" = "$INTERFACES_SHA"
-
+# fiducia-interfaces and fiducia-client are ordinary rev-pinned git
+# dependencies now, so cargo fetches them itself against Cargo.lock. The `git`
+# package above is what lets it do that; there is no sibling checkout to stage.
 COPY . fiducia-cli.rs
 
 WORKDIR /build/fiducia-cli.rs

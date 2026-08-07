@@ -1,7 +1,8 @@
 # fiducia-cli
 
 The `fiducia` command-line tool for [fiducia.cloud](https://fiducia.cloud).
-Today it helps clients pick the **region** to route to.
+Today it helps clients pick the **region** to route to, and reports a node's
+health through the shared org client.
 
 ## Why region (not IP)
 
@@ -42,6 +43,49 @@ the output composes straight back into the same shape the CLI consumes:
 ```sh
 fiducia region --json | jq -r .closest          # -> us-east
 ```
+
+`fiducia health` asks one node for `/health` and `/status` through
+[`fiducia-clients`](https://github.com/fiducia-cloud/fiducia-clients), so the
+request shapes, headers, and retry policy stay defined in one place rather than
+being re-implemented here. It takes either a node URL or a regions file that
+narrows to exactly one region:
+
+```sh
+fiducia health --url https://us-east.lb.fiducia.cloud
+fiducia health --regions edge-regions.json --only us-east --json
+```
+
+`--url` is **command-scoped**: it exists under `health` and nowhere else, so
+`fiducia regions --url ...` is a rejected unknown option rather than a silently
+ignored one.
+
+## Help and completions
+
+`--help` is rendered by the flags-2-env core from `.cli-flags.toml` at runtime —
+there is no usage string in the Rust source to drift out of date. It is
+subcommand-aware:
+
+```sh
+fiducia --help              # global flags + the command table
+fiducia health --help       # health's own flags, plus inherited global ones
+```
+
+Shell completions come from the same contract and are **static**: the generated
+script does no TOML reading and spawns no process while you are pressing Tab.
+
+```sh
+fiducia completion --shell bash > "${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions/fiducia"
+fiducia completion --shell zsh  > "${ZDOTDIR:-$HOME}/.zfunc/_fiducia"
+```
+
+## Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | success |
+| `1` | the invocation was valid but the work failed (no region reachable, unreadable regions file, HTTP error) |
+| `2` | bad invocation: unknown flag or command, out-of-range value, ambiguous `health` target |
+| `3` | `.cli-flags.toml` could not be found, read, or audited |
 
 ## Region routing model
 
@@ -130,29 +174,44 @@ the platform compiler: Apple Clang on macOS, MSVC on Windows, and GCC or Clang
 on Linux. GCC is neither universal nor a runtime dependency. A packaged
 `fiducia` binary and the final container image need no compiler installed.
 
-### Reproducible interfaces dependency
+### Reproducible org dependencies
 
-The CLI consumes generated contracts from the sibling `fiducia-interfaces`
-repository. CI and the Dockerfile pin it to commit
-`bd718cd72d72aa330534f3688f8fb1ce90c19d10` instead of a moving branch. The
-Docker build checks that commit out detached and verifies that the resulting
-full `HEAD` equals `INTERFACES_SHA`; branches, tags, and abbreviated hashes are
-rejected. The final image also includes `.cli-flags.toml` under
-`/usr/local/share/fiducia-cli`, so direct container execution keeps the same
-typed contract. Update the Dockerfile argument and CI checkout `ref` together
-when adopting a reviewed contracts commit.
+`fiducia-interfaces` and `fiducia-clients` are ordinary git dependencies pinned
+by full commit rev in [`Cargo.toml`](Cargo.toml), so a plain `git clone && cargo
+build` works — there is no sibling checkout to stage first, and the Dockerfile no
+longer takes an `INTERFACES_SHA` build argument. The interfaces rev is
+deliberately the same one `fiducia-client` pins, so cargo unifies them into a
+single crate instead of building two incompatible copies.
+
+The same two edges are declared in [`.zpkg.toml`](.zpkg.toml) as the org-level
+[zed](https://github.com/zed-pkg/zed-cli) dependency graph:
+
+```toml
+[dependencies]
+"fiducia-cloud/fiducia-clients" = "^0.1.0"
+"fiducia-cloud/fiducia-interfaces" = "^0.1.0"
+```
+
+The final image includes `.cli-flags.toml` under `/usr/local/share/fiducia-cli`,
+so direct container execution keeps the same typed contract.
 
 ```sh
-docker build \
-  --build-arg INTERFACES_SHA=<40-character-commit-sha> \
-  -t fiducia-cli:local .
+docker build -t fiducia-cli:local .
 ```
 
 ## Layout
 
+No module does two jobs, and `main.rs` does almost nothing:
+
 | File | Responsibility |
 |------|----------------|
-| `src/lib.rs` | region parsing + latency ranking (pure, unit-tested) |
+| `src/main.rs` | argv in, exit code out — nothing else |
+| `src/lib.rs` | module wiring and the top-level `run` |
+| `src/flags.rs` | contract audit, parse, precedence, typed coercion, range checks |
 | `src/cli_config.rs` | generated typed representation of `.cli-flags.toml` |
-| `src/flags.rs` | native contract audit, parse, precedence, and typed coercion |
-| `src/main.rs` | command execution and the latency probe (ureq) |
+| `src/help.rs` | help tables and completion scripts from the native core |
+| `src/regions.rs` | region parsing + latency ranking (pure, unit-tested) |
+| `src/probe.rs` | the latency probe loop (the only network I/O for `region`) |
+| `src/commands/` | one module per subcommand, each returning a `Report` |
+| `src/output.rs` | human table vs. `--json` |
+| `src/error.rs` | `CliError` and the exit codes above |

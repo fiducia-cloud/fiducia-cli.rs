@@ -7,7 +7,7 @@ on:
       - ".github/workflows/cli-flags.yml"
       - ".cli-flags.toml"
       - ".gitmodules"
-      - "src/cli_config.rs"
+      - "src/**"
       - "vendor/flags-2-env"
       - "scripts/with-flags2env.sh"
   push:
@@ -16,7 +16,7 @@ on:
       - ".github/workflows/cli-flags.yml"
       - ".cli-flags.toml"
       - ".gitmodules"
-      - "src/cli_config.rs"
+      - "src/**"
       - "vendor/flags-2-env"
       - "scripts/with-flags2env.sh"
   workflow_dispatch:

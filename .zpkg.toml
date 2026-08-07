@@ -11,8 +11,11 @@ language = "rust"
 vcs = "git"
 url = "https://github.com/fiducia-cloud/fiducia-cli.rs"
 
+# Org dependency graph: interfaces (shapes) -> clients (transport) -> this CLI.
+# The org segment is the GitHub org that actually owns the repo; "fiducia/..."
+# does not resolve.
 [dependencies]
-"fiducia/fiducia-clients" = "^0.1.0"
+"fiducia-cloud/fiducia-clients" = "^0.1.0"
 "fiducia-cloud/fiducia-interfaces" = "^0.1.0"
 
 [build]

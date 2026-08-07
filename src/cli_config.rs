@@ -3,6 +3,10 @@
 #[allow(non_snake_case)]
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CliConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub FIDUCIA_NODE_URL: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub FIDUCIA_COMPLETION_SHELL: Option<String>,
     pub FIDUCIA_REGIONS_FILE: String,
     pub FIDUCIA_SAMPLES: i64,
     pub FIDUCIA_HEALTH_PATH: String,
