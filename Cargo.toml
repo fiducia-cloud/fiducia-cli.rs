@@ -18,7 +18,7 @@ path = "src/main.rs"
 # parser through this crate's build script, so the released binary needs no
 # libflags2env at runtime and `--help`/completions render from .cli-flags.toml.
 flags2env = { git = "https://github.com/ORESoftware/flags-2-env.git", rev = "8c8465561075a8d7ebb58074b3a8087138e97d8f" }
-ureq = "2"
+ureq = "3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
