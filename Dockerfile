@@ -25,4 +25,10 @@ COPY --from=build --chown=65532:65532 /build/fiducia-cli.rs/.cli-flags.toml /usr
 
 USER 65532:65532
 
+# --- sops: this final stage has no shell (distroless/scratch), so runtime
+# decryption cannot run inside the container. Inject secrets HOST-SIDE at
+# `docker run` instead — never at build, never as --build-arg:
+#     just env-docker-run prod <image>        # decrypts env/enc/prod.env.enc
+#                                             # and passes --env-file, no plaintext on disk
+# or render a platform secret from the same ciphertext. See env/README.md.
 ENTRYPOINT ["/usr/local/bin/fiducia"]
