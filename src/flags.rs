@@ -1,27 +1,110 @@
-//! Cross-platform flags2env enforcement for the actual `fiducia` binary.
+//! argv + environment → a validated [`CliArgs`], through flags-2-env.
 //!
-//! The shell launcher remains a compatibility convenience, but direct binary
-//! execution now uses the same audited contract on Linux, macOS, and Windows.
+//! The order of operations matters and is the same in every one of our CLIs:
+//!
+//! 1. **audit** `.cli-flags.toml` — a malformed contract is a config error, not
+//!    a mysterious parse failure later;
+//! 2. **`parse_structured`** — this returns argv-derived values, the resolved
+//!    command, and the diagnostic channels *separately*, so a real environment
+//!    variable can never be mistaken for something the user typed;
+//! 3. **fail closed** on unknown options, invalid values, and stray operands;
+//! 4. **layer** schema defaults < process environment < argv, then hand the
+//!    merged map to `coerce` for typed conversion;
+//! 5. **range-check** the typed values here, where the message can name the
+//!    flag.
+//!
+//! Step 4 is why `provided_flags` is used rather than `flags`: `flags` carries
+//! TOML defaults, and spreading those over the real environment would let a
+//! default silently beat an env var the operator set.
 
 use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use flags2env::BundledFlags2Env;
 
 use crate::cli_config::CliConfig;
+use crate::commands::Command;
+use crate::error::CliError;
+use crate::help::SUPPORTED_SHELLS;
+use crate::probe::ProbeSettings;
+use crate::regions::{parse_regions, select_regions, Region};
 
+/// Everything a command needs, already validated.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CliArgs {
-    pub command: String,
+    pub command: Command,
     pub regions_file: String,
     pub samples: usize,
     pub health_path: String,
     pub timeout_ms: u64,
     pub warmup: usize,
+    /// Empty means "every region".
     pub only_region: String,
     pub json: bool,
+    /// `health --url`: a node URL that bypasses the regions file.
+    pub node_url: Option<String>,
+    /// `completion --shell`.
+    pub shell: String,
 }
 
+impl CliArgs {
+    /// Reads and validates the regions file, applying `--only`.
+    pub fn load_regions(&self) -> Result<Vec<Region>, CliError> {
+        let json = std::fs::read_to_string(&self.regions_file).map_err(|error| {
+            CliError::runtime(format!(
+                "cannot read regions file {}: {error}",
+                self.regions_file
+            ))
+        })?;
+        let regions =
+            parse_regions(&json).map_err(|error| CliError::config(format!("invalid regions file: {error}")))?;
+        select_regions(regions, &self.only_region).map_err(CliError::usage)
+    }
+
+    pub fn probe_settings(&self) -> ProbeSettings {
+        ProbeSettings {
+            health_path: self.health_path.clone(),
+            samples: self.samples,
+            warmup: self.warmup,
+            timeout: Duration::from_millis(self.timeout_ms),
+        }
+    }
+
+    /// Picks the single node `health` should talk to.
+    ///
+    /// `--url` wins outright. Otherwise the regions file must narrow to exactly
+    /// one region, because silently probing the first of several would make the
+    /// answer depend on file order.
+    pub fn resolve_node(&self) -> Result<(Option<String>, String), CliError> {
+        if let Some(url) = self.node_url.as_deref().map(str::trim).filter(|url| !url.is_empty()) {
+            if !(url.starts_with("https://") || url.starts_with("http://")) {
+                return Err(CliError::usage("--url must start with http:// or https://"));
+            }
+            return Ok((None, url.to_owned()));
+        }
+
+        let regions = self.load_regions()?;
+        match regions.as_slice() {
+            [region] => Ok((Some(region.name.clone()), region.url.clone())),
+            [] => Err(CliError::usage(
+                "no regions to query; pass --url or a non-empty --regions file",
+            )),
+            many => Err(CliError::usage(format!(
+                "--only or --url is required: {} regions are selectable ({})",
+                many.len(),
+                many.iter()
+                    .map(|region| region.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ))),
+        }
+    }
+}
+
+/// Finds `.cli-flags.toml`: an explicit override, then the working directory,
+/// then next to the installed binary (which is what makes a globally installed
+/// `fiducia` work from any directory).
 pub fn resolve_config_path() -> Result<PathBuf, String> {
     if let Some(path) = std::env::var_os("FIDUCIA_FLAGS_CONFIG").filter(|value| !value.is_empty()) {
         let path = PathBuf::from(path);
@@ -90,6 +173,8 @@ fn parse_cli_args_with_env(
         ));
     }
     if !parsed.extras.is_empty() {
+        // The values are not echoed: an operand is as likely to be a secret as
+        // a typo, and the count is enough to spot the mistake.
         return Err(format!(
             "unknown command or unexpected positional argument(s): {}",
             parsed.extras.len()
@@ -97,6 +182,8 @@ fn parse_cli_args_with_env(
     }
 
     let mut raw_config = environment.into_iter().collect::<HashMap<_, _>>();
+    // Command metadata is parser output, never operator input — an inherited
+    // FLAGS2ENV_COMMAND must not be able to choose the command.
     raw_config.remove("FLAGS2ENV_COMMAND");
     raw_config.extend(parsed.provided_flags);
     let typed = parser
@@ -104,11 +191,11 @@ fn parse_cli_args_with_env(
         .map_err(|error| format!("invalid typed configuration: {error}"))?;
 
     let command = match typed.FLAGS2ENV_COMMAND.as_deref() {
-        None | Some("") => "region".to_owned(),
-        Some("region") => "region".to_owned(),
-        Some("regions") => "regions".to_owned(),
-        Some(_) => return Err("flags-2-env resolved an unsupported command".to_owned()),
+        // No command means the default one, which keeps `fiducia -j` working.
+        None | Some("") => Command::Region,
+        Some(label) => Command::parse(label).map_err(|error| error.to_string())?,
     };
+
     let regions_file = typed.FIDUCIA_REGIONS_FILE;
     if regions_file.trim().is_empty() {
         return Err("--regions must not be empty".to_owned());
@@ -120,8 +207,18 @@ fn parse_cli_args_with_env(
     }
     let timeout_ms = bounded_u64(typed.FIDUCIA_TIMEOUT_MS, "FIDUCIA_TIMEOUT_MS", 1, 60_000)?;
     let warmup = bounded_usize(typed.FIDUCIA_WARMUP, "FIDUCIA_WARMUP", 0, 100)?;
-    let only_region = typed.FIDUCIA_ONLY_REGION.unwrap_or_default();
-    let json = typed.FIDUCIA_JSON;
+
+    // Scoped defaults are only applied when their command runs, so the default
+    // is restated here for the case where `completion` ran without `--shell`.
+    let shell = typed
+        .FIDUCIA_COMPLETION_SHELL
+        .unwrap_or_else(|| "bash".to_owned());
+    if command == Command::Completion && !SUPPORTED_SHELLS.contains(&shell.as_str()) {
+        return Err(format!(
+            "--shell must be one of: {}",
+            SUPPORTED_SHELLS.join(", ")
+        ));
+    }
 
     Ok(CliArgs {
         command,
@@ -130,11 +227,15 @@ fn parse_cli_args_with_env(
         health_path,
         timeout_ms,
         warmup,
-        only_region,
-        json,
+        only_region: typed.FIDUCIA_ONLY_REGION.unwrap_or_default(),
+        json: typed.FIDUCIA_JSON,
+        node_url: typed.FIDUCIA_NODE_URL,
+        shell,
     })
 }
 
+/// Strips any `=value` before an unknown option reaches a diagnostic, so a
+/// mistyped `--api-token=secret` cannot echo the secret.
 fn diagnostic_option_name(option: &str) -> String {
     if let Some(long) = option.strip_prefix("--") {
         return format!("--{}", long.split('=').next().unwrap_or_default());
@@ -178,17 +279,24 @@ mod tests {
         )
     }
 
+    fn argv(tokens: &[&str]) -> Vec<String> {
+        tokens.iter().map(|token| (*token).to_owned()).collect()
+    }
+
     #[test]
     fn parses_direct_binary_flags_and_command() {
-        let argv = vec![
-            "fiducia".to_owned(),
-            "region".to_owned(),
-            "--samples=7".to_owned(),
-            "--timeout=1500".to_owned(),
-            "--json".to_owned(),
-        ];
-        let parsed = parse(&argv, &[]).expect("valid flags");
-        assert_eq!(parsed.command, "region");
+        let parsed = parse(
+            &argv(&[
+                "fiducia",
+                "region",
+                "--samples=7",
+                "--timeout=1500",
+                "--json",
+            ]),
+            &[],
+        )
+        .expect("valid flags");
+        assert_eq!(parsed.command, Command::Region);
         assert_eq!(parsed.samples, 7);
         assert_eq!(parsed.timeout_ms, 1500);
         assert!(parsed.json);
@@ -196,51 +304,52 @@ mod tests {
 
     #[test]
     fn canonicalizes_the_closest_command_alias() {
-        let argv = vec!["fiducia".to_owned(), "closest".to_owned()];
-        let parsed = parse(&argv, &[]).expect("valid alias");
-        assert_eq!(parsed.command, "region");
+        let parsed = parse(&argv(&["fiducia", "closest"]), &[]).expect("valid alias");
+        assert_eq!(parsed.command, Command::Region);
     }
 
     #[test]
     fn environment_cannot_spoof_parser_command_metadata() {
-        let argv = vec!["fiducia".to_owned()];
-        let parsed = parse(&argv, &[("FLAGS2ENV_COMMAND", "regions")]).expect("default command");
-        assert_eq!(parsed.command, "region");
+        let parsed = parse(&argv(&["fiducia"]), &[("FLAGS2ENV_COMMAND", "regions")])
+            .expect("default command");
+        assert_eq!(parsed.command, Command::Region);
     }
 
     #[test]
     fn environment_beats_schema_defaults() {
-        let argv = vec!["fiducia".to_owned(), "region".to_owned()];
-        let parsed = parse(&argv, &[("FIDUCIA_SAMPLES", "9")]).expect("valid environment");
+        let parsed =
+            parse(&argv(&["fiducia", "region"]), &[("FIDUCIA_SAMPLES", "9")]).expect("valid env");
         assert_eq!(parsed.samples, 9);
     }
 
     #[test]
     fn cli_flags_beat_environment_values() {
-        let argv = vec![
-            "fiducia".to_owned(),
-            "region".to_owned(),
-            "--samples=7".to_owned(),
-        ];
-        let parsed = parse(&argv, &[("FIDUCIA_SAMPLES", "9")]).expect("valid override");
+        let parsed = parse(
+            &argv(&["fiducia", "region", "--samples=7"]),
+            &[("FIDUCIA_SAMPLES", "9")],
+        )
+        .expect("valid override");
         assert_eq!(parsed.samples, 7);
     }
 
     #[test]
     fn declared_boolean_environment_aliases_are_coerced() {
-        let argv = vec!["fiducia".to_owned(), "regions".to_owned()];
-        let parsed = parse(&argv, &[("FIDUCIA_JSON", "1")]).expect("valid boolean alias");
+        let parsed =
+            parse(&argv(&["fiducia", "regions"]), &[("FIDUCIA_JSON", "1")]).expect("bool alias");
         assert!(parsed.json);
     }
 
     #[test]
     fn unknown_flags_fail_closed() {
-        let argv = vec![
-            "fiducia".to_owned(),
-            "region".to_owned(),
-            "--api-token=must-remain-environment-only".to_owned(),
-        ];
-        let error = parse(&argv, &[]).expect_err("unknown flag");
+        let error = parse(
+            &argv(&[
+                "fiducia",
+                "region",
+                "--api-token=must-remain-environment-only",
+            ]),
+            &[],
+        )
+        .expect_err("unknown flag");
         assert!(error.contains("unknown command-line option"));
         assert!(error.contains("--api-token"));
         assert!(!error.contains("must-remain-environment-only"));
@@ -248,21 +357,57 @@ mod tests {
 
     #[test]
     fn unsafe_probe_values_are_rejected() {
-        let argv = vec![
-            "fiducia".to_owned(),
-            "region".to_owned(),
-            "--samples=0".to_owned(),
-        ];
-        assert!(parse(&argv, &[]).is_err());
+        assert!(parse(&argv(&["fiducia", "region", "--samples=0"]), &[]).is_err());
     }
 
     #[test]
     fn invalid_environment_values_get_toml_guidance_without_reflection() {
-        let argv = vec!["fiducia".to_owned(), "regions".to_owned()];
-        let error = parse(&argv, &[("FIDUCIA_SAMPLES", "do-not-reflect-this")])
-            .expect_err("invalid typed environment");
+        let error = parse(
+            &argv(&["fiducia", "regions"]),
+            &[("FIDUCIA_SAMPLES", "do-not-reflect-this")],
+        )
+        .expect_err("invalid typed environment");
         assert!(error.contains("flags.samples"));
         assert!(error.contains("type = \"integer\""));
         assert!(!error.contains("do-not-reflect-this"));
+    }
+
+    #[test]
+    fn command_scoped_url_is_only_accepted_under_health() {
+        let parsed = parse(
+            &argv(&["fiducia", "health", "--url=https://node.test"]),
+            &[],
+        )
+        .expect("scoped flag under its command");
+        assert_eq!(parsed.command, Command::Health);
+        assert_eq!(parsed.node_url.as_deref(), Some("https://node.test"));
+
+        // The same flag under a different command is not in scope, so it is an
+        // unknown option rather than a silently ignored one.
+        let error = parse(&argv(&["fiducia", "regions", "--url=https://node.test"]), &[])
+            .expect_err("out-of-scope flag");
+        assert!(error.contains("unknown command-line option"));
+    }
+
+    #[test]
+    fn completion_shell_defaults_to_bash_and_rejects_others() {
+        let parsed = parse(&argv(&["fiducia", "completion"]), &[]).expect("scoped default");
+        assert_eq!(parsed.command, Command::Completion);
+        assert_eq!(parsed.shell, "bash");
+
+        assert_eq!(
+            parse(&argv(&["fiducia", "completion", "--shell=zsh"]), &[])
+                .expect("zsh")
+                .shell,
+            "zsh"
+        );
+        assert!(parse(&argv(&["fiducia", "completion", "--shell=fish"]), &[]).is_err());
+    }
+
+    #[test]
+    fn health_requires_a_single_resolvable_node() {
+        let parsed = parse(&argv(&["fiducia", "health", "--url=ftp://node.test"]), &[])
+            .expect("parse succeeds; the scheme is checked at resolve time");
+        assert!(parsed.resolve_node().is_err());
     }
 }

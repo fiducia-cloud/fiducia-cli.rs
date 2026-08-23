@@ -14,11 +14,25 @@ name = "fiducia"
 path = "src/main.rs"
 
 [dependencies]
-flags2env = { git = "https://github.com/ORESoftware/flags-2-env.git", rev = "43eba9829ece1a12934397a6ebb20755aa26e8db" }
+# The CLI contract itself. `BundledFlags2Env` statically links the vendored C
+# parser through this crate's build script, so the released binary needs no
+# libflags2env at runtime and `--help`/completions render from .cli-flags.toml.
+flags2env = { git = "https://github.com/ORESoftware/flags-2-env.git", rev = "8c8465561075a8d7ebb58074b3a8087138e97d8f" }
 ureq = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# Org dependencies — the same two edges declared in `.zpkg.toml`.
+#
+# Pinned by rev rather than branch so a clone builds the code it was tested
+# against. These were path deps into a sibling checkout, which only resolved
+# inside a full multi-repo tree; a git rev makes a standalone clone build.
+#
 # Shared API payload/error contract — the CLI decodes node responses
-# (KvEntry, LockGrant, ProposeError, …) into these shared types.
-fiducia-interfaces = { path = "../fiducia-interfaces/generated/rust" }
+# (KvEntry, LockGrant, ProposeError, …) into these shared types. The rev is
+# deliberately the one fiducia-client already pins, so Cargo unifies the two
+# into a single crate instead of building incompatible copies.
+fiducia-interfaces = { git = "https://github.com/fiducia-cloud/fiducia-interfaces.git", rev = "ee8fe09f846f5a776d156c0b0d0d15582c8bd539" }
+# Transport. `fiducia health` goes through the org client rather than hand-rolled
+# HTTP, so retry policy and headers stay defined in one place.
+fiducia-client = { git = "https://github.com/fiducia-cloud/fiducia-clients.git", rev = "ebcecaee22d581265d80cad7d0a327bc8c4954be" }
