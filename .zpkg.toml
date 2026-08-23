@@ -4,7 +4,7 @@ name = "fiducia-cli"
 version = "0.1.0"
 description = "Command-line client for fiducia.cloud coordination, locks, leases, and regional discovery"
 license = "MIT"
-keywords = ["cli", "coordination", "locks", "leases", "rust", "global-tool"]
+keywords = ["cli", "coordination", "distributed-systems", "consensus", "locks", "leases", "rust", "global-tool"]
 language = "rust"
 
 [package.repository]
