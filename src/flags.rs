@@ -57,8 +57,8 @@ impl CliArgs {
                 self.regions_file
             ))
         })?;
-        let regions =
-            parse_regions(&json).map_err(|error| CliError::config(format!("invalid regions file: {error}")))?;
+        let regions = parse_regions(&json)
+            .map_err(|error| CliError::config(format!("invalid regions file: {error}")))?;
         select_regions(regions, &self.only_region).map_err(CliError::usage)
     }
 
@@ -77,27 +77,33 @@ impl CliArgs {
     /// one region, because silently probing the first of several would make the
     /// answer depend on file order.
     pub fn resolve_node(&self) -> Result<(Option<String>, String), CliError> {
-        if let Some(url) = self.node_url.as_deref().map(str::trim).filter(|url| !url.is_empty()) {
-            if !(url.starts_with("https://") || url.starts_with("http://")) {
-                return Err(CliError::usage("--url must start with http:// or https://"));
+        match self
+            .node_url
+            .as_deref()
+            .map(str::trim)
+            .filter(|url| !url.is_empty())
+        {
+            Some(url) => match url.starts_with("https://") || url.starts_with("http://") {
+                true => Ok((None, url.to_owned())),
+                false => Err(CliError::usage("--url must start with http:// or https://")),
+            },
+            None => {
+                let regions = self.load_regions()?;
+                match regions.as_slice() {
+                    [region] => Ok((Some(region.name.clone()), region.url.clone())),
+                    [] => Err(CliError::usage(
+                        "no regions to query; pass --url or a non-empty --regions file",
+                    )),
+                    many => Err(CliError::usage(format!(
+                        "--only or --url is required: {} regions are selectable ({})",
+                        many.len(),
+                        many.iter()
+                            .map(|region| region.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ))),
+                }
             }
-            return Ok((None, url.to_owned()));
-        }
-
-        let regions = self.load_regions()?;
-        match regions.as_slice() {
-            [region] => Ok((Some(region.name.clone()), region.url.clone())),
-            [] => Err(CliError::usage(
-                "no regions to query; pass --url or a non-empty --regions file",
-            )),
-            many => Err(CliError::usage(format!(
-                "--only or --url is required: {} regions are selectable ({})",
-                many.len(),
-                many.iter()
-                    .map(|region| region.name.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ))),
         }
     }
 }
@@ -106,31 +112,34 @@ impl CliArgs {
 /// then next to the installed binary (which is what makes a globally installed
 /// `fiducia` work from any directory).
 pub fn resolve_config_path() -> Result<PathBuf, String> {
-    if let Some(path) = std::env::var_os("FIDUCIA_FLAGS_CONFIG").filter(|value| !value.is_empty()) {
-        let path = PathBuf::from(path);
-        return path
-            .is_file()
-            .then_some(path)
-            .ok_or_else(|| "FIDUCIA_FLAGS_CONFIG does not point to a readable file".to_owned());
-    }
-
-    let mut candidates = Vec::new();
-    if let Ok(current) = std::env::current_dir() {
-        candidates.push(current.join(".cli-flags.toml"));
-    }
-    if let Ok(executable) = std::env::current_exe() {
-        if let Some(parent) = executable.parent() {
-            candidates.push(parent.join(".cli-flags.toml"));
-            candidates.push(parent.join("../share/fiducia-cli/.cli-flags.toml"));
+    match std::env::var_os("FIDUCIA_FLAGS_CONFIG").filter(|value| !value.is_empty()) {
+        Some(path) => {
+            let path = PathBuf::from(path);
+            path.is_file()
+                .then_some(path)
+                .ok_or_else(|| "FIDUCIA_FLAGS_CONFIG does not point to a readable file".to_owned())
+        }
+        None => {
+            let from_cwd = std::env::current_dir()
+                .ok()
+                .map(|current| current.join(".cli-flags.toml"));
+            let from_exe = std::env::current_exe().ok().and_then(|executable| {
+                executable.parent().map(|parent| {
+                    [
+                        parent.join(".cli-flags.toml"),
+                        parent.join("../share/fiducia-cli/.cli-flags.toml"),
+                    ]
+                })
+            });
+            from_cwd
+                .into_iter()
+                .chain(from_exe.into_iter().flatten())
+                .find(|candidate| candidate.is_file())
+                .ok_or_else(|| {
+                    "cannot locate .cli-flags.toml; set FIDUCIA_FLAGS_CONFIG to its path".to_owned()
+                })
         }
     }
-
-    candidates
-        .into_iter()
-        .find(|candidate| candidate.is_file())
-        .ok_or_else(|| {
-            "cannot locate .cli-flags.toml; set FIDUCIA_FLAGS_CONFIG to its path".to_owned()
-        })
 }
 
 pub fn parse_cli_args(argv: &[String], config_path: &Path) -> Result<CliArgs, String> {
@@ -237,10 +246,10 @@ fn parse_cli_args_with_env(
 /// Strips any `=value` before an unknown option reaches a diagnostic, so a
 /// mistyped `--api-token=secret` cannot echo the secret.
 fn diagnostic_option_name(option: &str) -> String {
-    if let Some(long) = option.strip_prefix("--") {
-        return format!("--{}", long.split('=').next().unwrap_or_default());
+    match option.strip_prefix("--") {
+        Some(long) => format!("--{}", long.split('=').next().unwrap_or_default()),
+        None => option.chars().take(2).collect(),
     }
-    option.chars().take(2).collect()
 }
 
 fn bounded_usize(value: i64, name: &str, min: usize, max: usize) -> Result<usize, String> {
@@ -384,8 +393,11 @@ mod tests {
 
         // The same flag under a different command is not in scope, so it is an
         // unknown option rather than a silently ignored one.
-        let error = parse(&argv(&["fiducia", "regions", "--url=https://node.test"]), &[])
-            .expect_err("out-of-scope flag");
+        let error = parse(
+            &argv(&["fiducia", "regions", "--url=https://node.test"]),
+            &[],
+        )
+        .expect_err("out-of-scope flag");
         assert!(error.contains("unknown command-line option"));
     }
 
