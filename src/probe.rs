@@ -26,7 +26,10 @@ pub struct ProbeSettings {
 /// Unreachable regions are not dropped — they come back with `median_ms: None`
 /// and sort last, so `--json` consumers can tell "slow" from "down".
 pub fn measure(regions: &[Region], settings: &ProbeSettings) -> Vec<RegionLatency> {
-    let agent = ureq::AgentBuilder::new().timeout(settings.timeout).build();
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_global(Some(settings.timeout))
+        .build()
+        .into();
     let measured = regions
         .iter()
         .map(|region| measure_one(&agent, region, settings))
