@@ -100,3 +100,10 @@ default = false
 true_aliases = ["1", "yes", "on"]
 false_aliases = ["0", "no", "off"]
 help = "Emit machine-readable JSON instead of the human table."
+
+
+[flags.fiducia-flags-config]
+env = "FIDUCIA_FLAGS_CONFIG"
+long = "fiducia-flags-config"
+type = "string"
+help = "Runtime environment key FIDUCIA_FLAGS_CONFIG."
