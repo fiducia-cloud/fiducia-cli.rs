@@ -27,6 +27,7 @@
 // because a scoped default only applies when its own command runs.
 pub mod cli_config;
 pub mod commands;
+pub mod env_map;
 pub mod error;
 pub mod flags;
 pub mod help;
@@ -34,6 +35,7 @@ pub mod output;
 pub mod probe;
 pub mod regions;
 
+pub use env_map::{env_value, get_env_map, EnvMap};
 pub use error::CliError;
 pub use output::{Format, Report};
 // Re-exported so integration tests and downstream callers keep the flat

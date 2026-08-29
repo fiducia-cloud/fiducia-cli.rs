@@ -25,6 +25,7 @@ use flags2env::BundledFlags2Env;
 
 use crate::cli_config::CliConfig;
 use crate::commands::Command;
+use crate::env_map::{EnvMap, env_value, get_env_map};
 use crate::error::CliError;
 use crate::help::SUPPORTED_SHELLS;
 use crate::probe::ProbeSettings;
@@ -46,6 +47,8 @@ pub struct CliArgs {
     pub node_url: Option<String>,
     /// `completion --shell`.
     pub shell: String,
+    /// Process env copied at parse time, then layered with argv-provided flags.
+    pub env: EnvMap,
 }
 
 impl CliArgs {
@@ -194,6 +197,13 @@ fn parse_cli_args_with_env(
     // Command metadata is parser output, never operator input — an inherited
     // FLAGS2ENV_COMMAND must not be able to choose the command.
     raw_config.remove("FLAGS2ENV_COMMAND");
+    let env = get_env_map(
+        raw_config
+            .iter()
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect(),
+        parsed.provided_flags.clone(),
+    );
     raw_config.extend(parsed.provided_flags);
     let typed = parser
         .coerce::<CliConfig, _>(&raw_config, Some(config_path))
@@ -240,6 +250,7 @@ fn parse_cli_args_with_env(
         json: typed.FIDUCIA_JSON,
         node_url: typed.FIDUCIA_NODE_URL,
         shell,
+        env,
     })
 }
 
@@ -309,6 +320,7 @@ mod tests {
         assert_eq!(parsed.samples, 7);
         assert_eq!(parsed.timeout_ms, 1500);
         assert!(parsed.json);
+        assert_eq!(env_value(&parsed.env, "FIDUCIA_SAMPLES"), Some("7"));
     }
 
     #[test]
@@ -421,5 +433,24 @@ mod tests {
         let parsed = parse(&argv(&["fiducia", "health", "--url=ftp://node.test"]), &[])
             .expect("parse succeeds; the scheme is checked at resolve time");
         assert!(parsed.resolve_node().is_err());
+    }
+
+    #[test]
+    fn parse_does_not_mutate_process_environment() {
+        let before = std::env::var_os("FIDUCIA_SAMPLES");
+        let parsed = parse(
+            &argv(&["fiducia", "region", "--samples=7"]),
+            &[("FIDUCIA_SAMPLES", "9")],
+        )
+        .expect("valid override");
+        assert_eq!(env_value(&parsed.env, "FIDUCIA_SAMPLES"), Some("7"));
+        assert_eq!(std::env::var_os("FIDUCIA_SAMPLES"), before);
+    }
+
+    #[test]
+    fn source_does_not_mutate_process_environment() {
+        const SRC: &str = include_str!("flags.rs");
+        let production = SRC.split("#[cfg(test)]").next().unwrap_or(SRC);
+        assert!(!production.contains("set_var"));
     }
 }
