@@ -12,9 +12,7 @@ on:
       - "Cargo.lock"
       - "Cargo.toml"
       - "Dockerfile"
-      - "src/cli_config.rs"
-      - "src/flags.rs"
-      - "src/main.rs"
+      - "src/**"
   push:
     branches: [main]
     paths:
@@ -27,9 +25,7 @@ on:
       - "Cargo.lock"
       - "Cargo.toml"
       - "Dockerfile"
-      - "src/cli_config.rs"
-      - "src/flags.rs"
-      - "src/main.rs"
+      - "src/**"
   workflow_dispatch:
 
 permissions:
@@ -43,7 +39,7 @@ jobs:
   flags2env:
     permissions:
       contents: read
-    uses: ORESoftware/flags-2-env/.github/workflows/reusable-consumer-compliance.yml@48530ec59759d9ecef5a283f49875de6540d2fab
+    uses: ORESoftware/flags-2-env/.github/workflows/reusable-consumer-compliance.yml@f06dcc8ee672943bcdd8d6c9f26c47ac5cf19f30
     with:
       tooling_ref: 48530ec59759d9ecef5a283f49875de6540d2fab
       parser_ref: 43eba9829ece1a12934397a6ebb20755aa26e8db

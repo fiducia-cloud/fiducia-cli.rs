@@ -1,8 +1,10 @@
 # flags-2-env config — https://github.com/ORESoftware/flags-2-env
 #
-# The actual Rust binary parses this contract directly on every platform. The
-# shell wrapper remains an optional compatibility launcher, not the enforcement
-# boundary.
+# This file is the CLI contract. The Rust binary parses it directly on every
+# platform, and `--help`, shell completions, env-var names, types, and defaults
+# are all rendered from it at runtime — there is no second copy in Rust to
+# drift. Adding a `[commands.*]` table here without a matching
+# `commands::Command` variant fails `command_set_matches_config`.
 
 [help]
 url = "https://github.com/fiducia-cloud/fiducia-cli.rs"
@@ -18,6 +20,29 @@ help = "List the selectable Fiducia regions."
 [commands.region]
 help = "Probe region health endpoints and select the lowest-latency region."
 aliases = ["closest"]
+
+[commands.health]
+help = "Report one node's health and status through the Fiducia client."
+
+# Command-scoped: `--url` only means anything under `health`, so it is declared
+# inside that command rather than polluting the global flag namespace.
+[commands.health.flags.url]
+env = "FIDUCIA_NODE_URL"
+aliases = ["url"]
+short = "u"
+type = "string"
+help = "Probe this node URL directly instead of resolving one from --regions."
+
+[commands.completion]
+help = "Print a shell completion script for this CLI."
+
+[commands.completion.flags.shell]
+env = "FIDUCIA_COMPLETION_SHELL"
+aliases = ["shell"]
+short = "s"
+type = "string"
+default = "bash"
+help = "Shell dialect to emit: bash or zsh."
 
 [flags.regions]
 env = "FIDUCIA_REGIONS_FILE"
@@ -75,3 +100,10 @@ default = false
 true_aliases = ["1", "yes", "on"]
 false_aliases = ["0", "no", "off"]
 help = "Emit machine-readable JSON instead of the human table."
+
+
+[flags.fiducia-flags-config]
+env = "FIDUCIA_FLAGS_CONFIG"
+long = "fiducia-flags-config"
+type = "string"
+help = "Runtime environment key FIDUCIA_FLAGS_CONFIG."

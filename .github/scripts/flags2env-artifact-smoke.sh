@@ -1,16 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly interfaces_sha="bd718cd72d72aa330534f3688f8fb1ce90c19d10"
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 repo_root="$(cd -- "$script_dir/../.." && pwd -P)"
 fixture="$repo_root/.github/fixtures/regions.json"
 image="fiducia-cli-flags2env-smoke:${GITHUB_RUN_ID:-local}"
 
-docker build \
-  --build-arg "INTERFACES_SHA=$interfaces_sha" \
-  --tag "$image" \
-  "$repo_root"
+docker build --tag "$image" "$repo_root"
 
 root_help="$(docker run --rm "$image" --help)"
 grep -Fq -- "--regions" <<<"$root_help"
