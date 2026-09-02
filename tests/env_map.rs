@@ -23,7 +23,11 @@ fn merge_preserves_unrelated_values_and_btree_order() {
     ]);
     let result = get_env_map(original.clone(), [("M_MIDDLE".into(), "m".into())]);
 
-    assert_eq!(original.len(), 2, "the caller-owned source snapshot is unchanged");
+    assert_eq!(
+        original.len(),
+        2,
+        "the caller-owned source snapshot is unchanged"
+    );
     assert_eq!(
         result.keys().map(String::as_str).collect::<Vec<_>>(),
         ["A_FIRST", "M_MIDDLE", "Z_LAST"],
@@ -32,10 +36,7 @@ fn merge_preserves_unrelated_values_and_btree_order() {
 
 #[test]
 fn env_value_trims_unicode_whitespace_without_changing_storage() {
-    let env = EnvMap::from([(
-        "FIDUCIA_REGION".into(),
-        "\u{2003}sa-east-1\u{2003}".into(),
-    )]);
+    let env = EnvMap::from([("FIDUCIA_REGION".into(), "\u{2003}sa-east-1\u{2003}".into())]);
 
     assert_eq!(env_value(&env, "FIDUCIA_REGION"), Some("sa-east-1"));
     assert_eq!(

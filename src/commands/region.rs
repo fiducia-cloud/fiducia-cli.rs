@@ -18,7 +18,10 @@ pub struct RegionRanking {
 
 impl Report for RegionRanking {
     fn render_human(&self) -> String {
-        let mut out = format!("{:<16} {:>10}  {:>7}  url", "region", "median ms", "ok/total");
+        let mut out = format!(
+            "{:<16} {:>10}  {:>7}  url",
+            "region", "median ms", "ok/total"
+        );
         for region in &self.regions {
             let latency = region
                 .median_ms

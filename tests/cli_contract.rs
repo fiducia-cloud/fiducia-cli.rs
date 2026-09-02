@@ -50,7 +50,10 @@ fn root_help_lists_every_declared_command() {
 #[test]
 fn command_scoped_flags_appear_only_under_their_command() {
     let scoped = stdout(&fiducia(&["health", "--help"]));
-    assert!(scoped.contains("--url"), "health help omits --url:\n{scoped}");
+    assert!(
+        scoped.contains("--url"),
+        "health help omits --url:\n{scoped}"
+    );
 
     let root = stdout(&fiducia(&["--help"]));
     assert!(
@@ -70,7 +73,10 @@ fn completion_scripts_are_emitted_for_both_shells() {
         let output = fiducia(&["completion", "--shell", shell]);
         assert!(output.status.success(), "{shell} completion failed");
         let script = stdout(&output);
-        assert!(script.contains("fiducia"), "{shell} script names no command");
+        assert!(
+            script.contains("fiducia"),
+            "{shell} script names no command"
+        );
         // The point of a static script: no runtime dependency on the parser.
         assert!(
             !script.contains("flags2env audit"),
@@ -86,7 +92,10 @@ fn completion_scripts_are_emitted_for_both_shells() {
 fn exit_codes_match_the_documented_contract() {
     // 2 — bad invocation.
     assert_eq!(fiducia(&["regions", "--nope"]).status.code(), Some(2));
-    assert_eq!(fiducia(&["definitely-not-a-command"]).status.code(), Some(2));
+    assert_eq!(
+        fiducia(&["definitely-not-a-command"]).status.code(),
+        Some(2)
+    );
 
     // 3 — the contract itself could not be read.
     let broken = Command::new(env!("CARGO_BIN_EXE_fiducia"))
@@ -111,10 +120,7 @@ fn rejected_option_values_are_not_reflected_back() {
     // A mistyped flag is as likely to carry a secret as a typo, so diagnostics
     // name the option and never its value.
     let sentinel = "must-remain-environment-only";
-    let output = fiducia(&[
-        "regions",
-        &format!("--api-token={sentinel}"),
-    ]);
+    let output = fiducia(&["regions", &format!("--api-token={sentinel}")]);
     assert_eq!(output.status.code(), Some(2));
     let combined = format!("{}{}", stdout(&output), stderr(&output));
     assert!(combined.contains("--api-token"));
