@@ -38,7 +38,9 @@ pub use error::CliError;
 pub use output::{Format, Report};
 // Re-exported so integration tests and downstream callers keep the flat
 // `fiducia_cli::parse_regions` paths they already use.
-pub use regions::{closest, median, parse_regions, rank, select_regions, truthy, Region, RegionLatency};
+pub use regions::{
+    closest, median, parse_regions, rank, select_regions, truthy, Region, RegionLatency,
+};
 
 /// The program name used in help tables, completion scripts, and diagnostics.
 pub const PROGRAM: &str = "fiducia";
