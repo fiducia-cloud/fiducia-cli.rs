@@ -218,6 +218,23 @@ def structural_validate(instance: Any, schema: dict[str, Any]) -> list[str]:
         for key in instance:
             if key not in allowed:
                 errors.append(f"undeclared property {key!r}")
+    for key, property_schema in schema["properties"].items():
+        if key not in instance or not isinstance(property_schema, dict):
+            continue
+        expected = property_schema.get("type")
+        value = instance[key]
+        valid = (
+            expected is None
+            or (expected == "null" and value is None)
+            or (expected == "boolean" and isinstance(value, bool))
+            or (expected == "integer" and isinstance(value, int) and not isinstance(value, bool))
+            or (expected == "number" and isinstance(value, (int, float)) and not isinstance(value, bool))
+            or (expected == "string" and isinstance(value, str))
+            or (expected == "array" and isinstance(value, list))
+            or (expected == "object" and isinstance(value, dict))
+        )
+        if not valid:
+            errors.append(f"property {key!r} must be of type {expected!r}")
     return errors
 
 
