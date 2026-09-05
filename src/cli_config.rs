@@ -16,5 +16,7 @@ pub struct CliConfig {
     pub FIDUCIA_ONLY_REGION: Option<String>,
     pub FIDUCIA_JSON: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub FIDUCIA_FLAGS_CONFIG: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub FLAGS2ENV_COMMAND: Option<String>,
 }
