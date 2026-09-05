@@ -2,21 +2,19 @@
 org = "fiducia-cloud"
 name = "fiducia-cli"
 version = "0.1.0"
-description = "Command-line client for fiducia.cloud coordination, locks, leases, and regional discovery"
+description = "Command-line tool for fiducia.cloud"
 license = "MIT"
-keywords = ["cli", "coordination", "distributed-systems", "consensus", "locks", "leases", "rust", "global-tool"]
+keywords = ["cli", "distributed-systems", "locks", "consensus", "rust"]
 language = "rust"
 
 [package.repository]
 vcs = "git"
 url = "https://github.com/fiducia-cloud/fiducia-cli.rs"
 
-# Org dependency graph: interfaces (shapes) -> clients (transport) -> this CLI.
-# The org segment is the GitHub org that actually owns the repo; "fiducia/..."
-# does not resolve.
 [dependencies]
 "fiducia-cloud/fiducia-clients" = "^0.1.0"
 "fiducia-cloud/fiducia-interfaces" = "^0.1.0"
+"fiducia-cloud/fiducia-lib" = "^0.1.0"
 
 [build]
 command = "cargo build --release --locked --bin fiducia"
@@ -34,10 +32,6 @@ include_readme = true
 tag_format = "v{version}"
 smoke_test = "test -x \"$ZED_PKG_TEST_TARGET/target/release/fiducia\" && \"$ZED_PKG_TEST_TARGET/target/release/fiducia\" --help >/dev/null"
 exclude = [".env", ".env.*", ".direnv/**", ".zed/**", ".zed-pack/**", ".vendor/.zed/**", "target/**", "tmp/**", "**/*.log", ".DS_Store"]
-
-# Native crates.io publication is intentionally deferred. Cargo.toml has no
-# redistribution license and includes a Git-sourced flags2env dependency, so a
-# public native route would claim an artifact that Cargo cannot publish.
 
 [scripts]
 test = "cargo test --all-targets --locked"
