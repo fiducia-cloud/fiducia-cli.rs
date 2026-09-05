@@ -25,7 +25,7 @@ use flags2env::BundledFlags2Env;
 
 use crate::cli_config::CliConfig;
 use crate::commands::Command;
-use crate::env_map::{EnvMap, env_value, get_env_map};
+use crate::env_map::{env_value, get_env_map, EnvMap};
 use crate::error::CliError;
 use crate::help::SUPPORTED_SHELLS;
 use crate::probe::ProbeSettings;
