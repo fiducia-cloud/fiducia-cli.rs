@@ -1,3 +1,4 @@
+<!-- generated-policy: frozen -->
 # `generated/` — frozen artifacts (read-only)
 
 This tree is **generated**. Do not hand-edit adapters here.
@@ -35,6 +36,13 @@ not only on types that compile. Unit tests should feed **valid** and
 
 ```sh
 f2e check-contract --config .cli-flags.toml --json env.fixture.json
+```
+
+The repository runtime checker also validates JSON Schema fixtures and
+cross-checks schema fields against primary sources:
+
+```sh
+python3 scripts/check-generated-contract.py --freeze --require-readonly
 ```
 
 ## Gitignored trees
