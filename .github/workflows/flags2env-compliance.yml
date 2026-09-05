@@ -39,7 +39,7 @@ jobs:
   flags2env:
     permissions:
       contents: read
-    uses: ORESoftware/flags-2-env/.github/workflows/reusable-consumer-compliance.yml@f06dcc8ee672943bcdd8d6c9f26c47ac5cf19f30
+    uses: ORESoftware/flags-2-env/.github/workflows/reusable-consumer-compliance.yml@5a44d6a38f06c2765e80676618fd72bf4e59b984
     with:
       tooling_ref: 48530ec59759d9ecef5a283f49875de6540d2fab
       # Compliance must audit the same parser revision linked into the CLI.
