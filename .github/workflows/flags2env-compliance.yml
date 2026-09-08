@@ -39,9 +39,9 @@ jobs:
   flags2env:
     permissions:
       contents: read
-    uses: flags-2-env/flags-2-env/.github/workflows/reusable-consumer-compliance.yml@5a44d6a38f06c2765e80676618fd72bf4e59b984
+    uses: flags-2-env/flags-2-env/.github/workflows/reusable-consumer-compliance.yml@3414281ed8d7339d5bfabf951048bff31aa3349e
     with:
-      tooling_ref: 48530ec59759d9ecef5a283f49875de6540d2fab
+      tooling_ref: 3414281ed8d7339d5bfabf951048bff31aa3349e
       # Compliance must audit the same parser revision linked into the CLI.
       # Upgrade Cargo.toml and Cargo.lock atomically before advancing this pin.
       parser_ref: 8c8465561075a8d7ebb58074b3a8087138e97d8f
