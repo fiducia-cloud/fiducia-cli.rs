@@ -101,7 +101,7 @@ single shard with its leader pulled close by affinity. See
 ## Configuration — flags-2-env
 
 Flags are declared once in [`.cli-flags.toml`](.cli-flags.toml), the
-[flags-2-env](https://github.com/ORESoftware/flags-2-env) config format. Each flag
+[flags-2-env](https://github.com/flags-2-env/flags-2-env) config format. Each flag
 maps to an env var. The direct Rust executable audits and parses that contract,
 merges only argv-provided overrides over the environment, and then coerces the
 result into the generated `CliConfig` type. The precedence is therefore

@@ -16,7 +16,7 @@
 //! | [`error`] | [`error::CliError`] and the exit codes it maps to |
 //!
 //! The flag contract itself is not in this crate — it is `.cli-flags.toml`,
-//! parsed at runtime by [flags-2-env](https://github.com/ORESoftware/flags-2-env).
+//! parsed at runtime by [flags-2-env](https://github.com/flags-2-env/flags-2-env).
 //! Help text, shell completions, env-var names, defaults, and types all derive
 //! from that one file.
 
