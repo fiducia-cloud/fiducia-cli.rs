@@ -26,7 +26,7 @@ pub mod probe;
 pub mod regions;
 pub mod runtime_policy;
 
-use ores_clis_core::{ColorRole, EnvironmentHints, LogLevel, TerminalState, paint, parse_shared_argv};
+use ores_clis_core::{CliPolicy, EnvironmentHints, TerminalState, parse_shared_argv};
 
 pub use env_map::{EnvMap, env_value, get_env_map};
 pub use error::CliError;
@@ -36,16 +36,17 @@ pub use regions::{Region, RegionLatency, closest, median, parse_regions, rank, s
 pub const PROGRAM: &str = "fiducia";
 
 pub fn run(argv: &[String]) -> i32 {
+    let terminals = TerminalState::detect();
+    let environment = EnvironmentHints::detect();
     let shared = match parse_shared_argv(argv.iter().skip(1).cloned()) {
         Ok(shared) => shared,
         Err(error) => {
-            eprintln!("{PROGRAM}: {error}");
+            runtime_policy::install(CliPolicy::default().resolve(terminals, environment));
+            output::emit_error(format!("{PROGRAM}: {error}"));
             return 2;
         }
     };
-    let runtime = shared
-        .policy
-        .resolve(TerminalState::detect(), EnvironmentHints::detect());
+    let runtime = shared.policy.resolve(terminals, environment);
     runtime_policy::install(runtime);
 
     let legacy_output_explicit = std::env::var_os("FIDUCIA_JSON").is_some()
@@ -65,10 +66,10 @@ pub fn run(argv: &[String]) -> i32 {
 
     if help::is_help_requested(argv) {
         return match help::help_table(&config_path, PROGRAM, argv) {
-            Ok(table) => {
-                print!("{table}");
-                0
-            }
+            Ok(table) => match output::emit_informational(&table) {
+                Ok(()) => 0,
+                Err(error) => report(&error, None, argv),
+            },
             Err(error) => report(&error, None, argv),
         };
     }
@@ -88,21 +89,11 @@ pub fn run(argv: &[String]) -> i32 {
 }
 
 fn report(error: &CliError, config_path: Option<&std::path::Path>, argv: &[String]) -> i32 {
-    let runtime = runtime_policy::current();
-    if runtime.allows_log(LogLevel::Error) {
-        eprintln!(
-            "{}",
-            paint(
-                runtime.color_stderr(),
-                ColorRole::Error,
-                format!("{PROGRAM}: {error}")
-            )
-        );
-        if error.wants_help() {
-            if let Some(config_path) = config_path {
-                if let Ok(table) = help::help_table(config_path, PROGRAM, argv) {
-                    eprint!("\n{table}");
-                }
+    output::emit_error(format!("{PROGRAM}: {error}"));
+    if error.wants_help() {
+        if let Some(config_path) = config_path {
+            if let Ok(table) = help::help_table(config_path, PROGRAM, argv) {
+                output::emit_diagnostic_text(&format!("\n{table}"));
             }
         }
     }
