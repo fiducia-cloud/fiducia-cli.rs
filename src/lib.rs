@@ -26,12 +26,14 @@ pub mod probe;
 pub mod regions;
 pub mod runtime_policy;
 
-use ores_clis_core::{CliPolicy, EnvironmentHints, TerminalState, parse_shared_argv};
+use ores_clis_core::{parse_shared_argv, CliPolicy, EnvironmentHints, TerminalState};
 
-pub use env_map::{EnvMap, env_value, get_env_map};
+pub use env_map::{env_value, get_env_map, EnvMap};
 pub use error::CliError;
 pub use output::{Format, Report};
-pub use regions::{Region, RegionLatency, closest, median, parse_regions, rank, select_regions, truthy};
+pub use regions::{
+    closest, median, parse_regions, rank, select_regions, truthy, Region, RegionLatency,
+};
 
 pub const PROGRAM: &str = "fiducia";
 
