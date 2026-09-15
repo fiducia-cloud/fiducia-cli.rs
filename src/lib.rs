@@ -14,17 +14,7 @@
 //! | [`commands`] | one module per subcommand, each returning a [`output::Report`] |
 //! | [`output`] | human table vs. `--json` |
 //! | [`error`] | [`error::CliError`] and the exit codes it maps to |
-//!
-//! The flag contract itself is not in this crate — it is `.cli-flags.toml`,
-//! parsed at runtime by [flags-2-env](https://github.com/flags-2-env/flags-2-env).
-//! Help text, shell completions, env-var names, defaults, and types all derive
-//! from that one file.
 
-// Regenerate after editing `.cli-flags.toml`:
-//   flags2env generate rust .cli-flags.toml --name CliConfig > src/cli_config.rs
-// CI diffs the file against fresh generator output, so it stays byte-identical.
-// Command-scoped flags land there as `Option` even when they declare a default,
-// because a scoped default only applies when its own command runs.
 pub mod cli_config;
 pub mod commands;
 pub mod env_map;
@@ -34,24 +24,40 @@ pub mod help;
 pub mod output;
 pub mod probe;
 pub mod regions;
+pub mod runtime_policy;
 
-pub use env_map::{env_value, get_env_map, EnvMap};
+use ores_clis_core::{ColorRole, EnvironmentHints, LogLevel, TerminalState, paint, parse_shared_argv};
+
+pub use env_map::{EnvMap, env_value, get_env_map};
 pub use error::CliError;
 pub use output::{Format, Report};
-// Re-exported so integration tests and downstream callers keep the flat
-// `fiducia_cli::parse_regions` paths they already use.
-pub use regions::{
-    closest, median, parse_regions, rank, select_regions, truthy, Region, RegionLatency,
-};
+pub use regions::{Region, RegionLatency, closest, median, parse_regions, rank, select_regions, truthy};
 
-/// The program name used in help tables, completion scripts, and diagnostics.
 pub const PROGRAM: &str = "fiducia";
 
-/// Parses `argv`, runs the selected command, and returns the process exit code.
-///
-/// `--help` short-circuits before any work, and usage errors print the same
-/// generated table, so there is exactly one description of the CLI surface.
 pub fn run(argv: &[String]) -> i32 {
+    let shared = match parse_shared_argv(argv.iter().skip(1).cloned()) {
+        Ok(shared) => shared,
+        Err(error) => {
+            eprintln!("{PROGRAM}: {error}");
+            return 2;
+        }
+    };
+    let runtime = shared
+        .policy
+        .resolve(TerminalState::detect(), EnvironmentHints::detect());
+    runtime_policy::install(runtime);
+
+    let legacy_output_explicit = std::env::var_os("FIDUCIA_JSON").is_some()
+        || shared
+            .passthrough
+            .iter()
+            .any(|arg| arg == "-j" || arg.starts_with("--json="));
+    let mut consumer_argv = Vec::with_capacity(shared.passthrough.len() + 1);
+    consumer_argv.push(argv.first().cloned().unwrap_or_else(|| PROGRAM.to_owned()));
+    consumer_argv.extend(shared.passthrough.iter().cloned());
+    let argv = consumer_argv.as_slice();
+
     let config_path = match flags::resolve_config_path() {
         Ok(path) => path,
         Err(error) => return report(&CliError::config(error), None, argv),
@@ -67,10 +73,13 @@ pub fn run(argv: &[String]) -> i32 {
         };
     }
 
-    let args = match flags::parse_cli_args(argv, &config_path) {
+    let mut args = match flags::parse_cli_args(argv, &config_path) {
         Ok(args) => args,
         Err(error) => return report(&CliError::usage(error), Some(&config_path), argv),
     };
+    if shared.output_was_explicit() || !legacy_output_explicit {
+        args.json = runtime.json();
+    }
 
     match commands::dispatch(&args, &config_path) {
         Ok(code) => code,
@@ -78,14 +87,22 @@ pub fn run(argv: &[String]) -> i32 {
     }
 }
 
-/// Prints a diagnostic on stderr, follows usage errors with the generated help
-/// table, and returns the error's exit code.
 fn report(error: &CliError, config_path: Option<&std::path::Path>, argv: &[String]) -> i32 {
-    eprintln!("{PROGRAM}: {error}");
-    if error.wants_help() {
-        if let Some(config_path) = config_path {
-            if let Ok(table) = help::help_table(config_path, PROGRAM, argv) {
-                eprint!("\n{table}");
+    let runtime = runtime_policy::current();
+    if runtime.allows_log(LogLevel::Error) {
+        eprintln!(
+            "{}",
+            paint(
+                runtime.color_stderr(),
+                ColorRole::Error,
+                format!("{PROGRAM}: {error}")
+            )
+        );
+        if error.wants_help() {
+            if let Some(config_path) = config_path {
+                if let Ok(table) = help::help_table(config_path, PROGRAM, argv) {
+                    eprint!("\n{table}");
+                }
             }
         }
     }
