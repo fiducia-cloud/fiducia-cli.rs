@@ -6,7 +6,7 @@
 use std::io;
 
 use ores_clis_core::{
-    ColorRole, EmitDisposition, ProtocolEmitter, StreamRole, paint, top_level_io,
+    ColorRole, EmitDisposition, LogLevel, ProtocolEmitter, StreamRole, paint, top_level_io,
 };
 use serde::Serialize;
 
@@ -58,4 +58,35 @@ pub fn emit<R: Report>(report: &R, format: Format) -> Result<i32, CliError> {
     })? {
         EmitDisposition::Written | EmitDisposition::ConsumerClosed => Ok(exit_code),
     }
+}
+
+pub fn emit_informational(value: &str) -> Result<(), CliError> {
+    let stdout = io::stdout();
+    let mut output = ProtocolEmitter::new(stdout.lock(), StreamRole::Primary);
+    match top_level_io(output.emit_primary_human_line(value.trim_end_matches('\n')))
+        .map_err(|error| CliError::runtime(format!("could not write informational output: {error}")))?
+    {
+        EmitDisposition::Written | EmitDisposition::ConsumerClosed => Ok(()),
+    }
+}
+
+pub fn emit_error(value: impl std::fmt::Display) {
+    let runtime = runtime_policy::current();
+    if !runtime.allows_log(LogLevel::Error) {
+        return;
+    }
+    let stderr = io::stderr();
+    let mut output = ProtocolEmitter::new(stderr.lock(), StreamRole::Diagnostics);
+    let line = paint(runtime.color_stderr(), ColorRole::Error, value);
+    let _ = top_level_io(output.emit_diagnostic_line(&line));
+}
+
+pub fn emit_diagnostic_text(value: &str) {
+    let runtime = runtime_policy::current();
+    if !runtime.allows_log(LogLevel::Error) {
+        return;
+    }
+    let stderr = io::stderr();
+    let mut output = ProtocolEmitter::new(stderr.lock(), StreamRole::Diagnostics);
+    let _ = top_level_io(output.emit_diagnostic_line(value.trim_end_matches('\n')));
 }
