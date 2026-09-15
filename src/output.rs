@@ -6,7 +6,7 @@
 use std::io;
 
 use ores_clis_core::{
-    ColorRole, EmitDisposition, LogLevel, ProtocolEmitter, StreamRole, paint, top_level_io,
+    paint, top_level_io, ColorRole, EmitDisposition, LogLevel, ProtocolEmitter, StreamRole,
 };
 use serde::Serialize;
 
@@ -21,7 +21,11 @@ pub enum Format {
 
 impl Format {
     pub fn from_json_flag(json: bool) -> Self {
-        if json { Self::Json } else { Self::Human }
+        if json {
+            Self::Json
+        } else {
+            Self::Human
+        }
     }
 }
 
@@ -40,7 +44,11 @@ pub fn emit<R: Report>(report: &R, format: Format) -> Result<i32, CliError> {
     let mut output = ProtocolEmitter::new(stdout.lock(), StreamRole::Primary);
     let write = match format {
         Format::Human => {
-            let role = if exit_code == 0 { ColorRole::Success } else { ColorRole::Error };
+            let role = if exit_code == 0 {
+                ColorRole::Success
+            } else {
+                ColorRole::Error
+            };
             output.emit_primary_human_line(&paint(
                 runtime.color_stdout(),
                 role,
@@ -53,9 +61,9 @@ pub fn emit<R: Report>(report: &R, format: Format) -> Result<i32, CliError> {
         }
     };
 
-    match top_level_io(write).map_err(|error| {
-        CliError::runtime(format!("could not write command output: {error}"))
-    })? {
+    match top_level_io(write)
+        .map_err(|error| CliError::runtime(format!("could not write command output: {error}")))?
+    {
         EmitDisposition::Written | EmitDisposition::ConsumerClosed => Ok(exit_code),
     }
 }
@@ -63,9 +71,9 @@ pub fn emit<R: Report>(report: &R, format: Format) -> Result<i32, CliError> {
 pub fn emit_informational(value: &str) -> Result<(), CliError> {
     let stdout = io::stdout();
     let mut output = ProtocolEmitter::new(stdout.lock(), StreamRole::Primary);
-    match top_level_io(output.emit_primary_human_line(value.trim_end_matches('\n')))
-        .map_err(|error| CliError::runtime(format!("could not write informational output: {error}")))?
-    {
+    match top_level_io(output.emit_primary_human_line(value.trim_end_matches('\n'))).map_err(
+        |error| CliError::runtime(format!("could not write informational output: {error}")),
+    )? {
         EmitDisposition::Written | EmitDisposition::ConsumerClosed => Ok(()),
     }
 }
