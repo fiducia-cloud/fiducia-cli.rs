@@ -55,6 +55,55 @@ jobs:
         with:
           toolchain: "1.95.0"
           components: rustfmt, clippy
+      - name: Install released Zed package manager (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$(uname -s)-$(uname -m)" in
+            Linux-x86_64)
+              archive=zed-x86_64-unknown-linux-gnu.tar.gz
+              expected=b8f81a8e4943cbaeb47153386819a911dcf02666a8709c5bd013e4f35b1ba1b9
+              ;;
+            Darwin-arm64)
+              archive=zed-aarch64-apple-darwin.tar.gz
+              expected=46052288d8a5ca178e7f942aeb03197022416ce13c3ac4ebd0fea66963977e62
+              ;;
+            Darwin-x86_64)
+              archive=zed-x86_64-apple-darwin.tar.gz
+              expected=618d2739b252aab84877b280759f70b2d0352eb7d2c4a9e91a37baa152f48ad7
+              ;;
+            *)
+              echo 'unsupported Unix runner platform' >&2
+              exit 1
+              ;;
+          esac
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/zed.tar.gz" \
+            "https://github.com/zed-pkg/zed-cli/releases/download/v0.2.3/$archive"
+          if [ "$(uname -s)" = Linux ]; then
+            printf '%s  %s\n' "$expected" "$RUNNER_TEMP/zed.tar.gz" | sha256sum --check --strict
+          else
+            test "$(shasum -a 256 "$RUNNER_TEMP/zed.tar.gz" | awk '{print $1}')" = "$expected"
+          fi
+          tar -xzf "$RUNNER_TEMP/zed.tar.gz" -C "$RUNNER_TEMP"
+          printf '%s\n' "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: Install released Zed package manager (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'zed.zip'
+          Invoke-WebRequest -Uri 'https://github.com/zed-pkg/zed-cli/releases/download/v0.2.3/zed-x86_64-pc-windows-msvc.zip' -OutFile $archive
+          $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          if ($actual -ne '889da2b47d8109dc6c7bc7ba7233d696356679b9fa928926636c4cb7cf243981') { throw "unexpected zed archive sha256: $actual" }
+          Expand-Archive -LiteralPath $archive -DestinationPath $env:RUNNER_TEMP -Force
+          Add-Content -Path $env:GITHUB_PATH -Value $env:RUNNER_TEMP
+      - name: Validate and materialize frozen Zed dependencies
+        working-directory: repo
+        shell: bash
+        run: |
+          set -euo pipefail
+          zed validate --require-lock
+          zed install --frozen --install-mode copy
       - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
         with:
           workspaces: repo
@@ -71,7 +120,7 @@ jobs:
 
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     permissions:
       contents: read
     steps:
@@ -88,6 +137,22 @@ jobs:
       - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
         with:
           toolchain: "1.95.0"
+      - name: Install released Zed package manager
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/zed.tar.gz" \
+            https://github.com/zed-pkg/zed-cli/releases/download/v0.2.3/zed-x86_64-unknown-linux-gnu.tar.gz
+          printf '%s  %s\n' b8f81a8e4943cbaeb47153386819a911dcf02666a8709c5bd013e4f35b1ba1b9 "$RUNNER_TEMP/zed.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/zed.tar.gz" -C "$RUNNER_TEMP"
+          printf '%s\n' "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: Validate and materialize frozen Zed dependencies
+        working-directory: repo
+        shell: bash
+        run: |
+          set -euo pipefail
+          zed validate --require-lock
+          zed install --frozen --install-mode copy
       - uses: taiki-e/install-action@1ed6d7be6168f6c9046541087ff549b6bc581fdf # v2
         with:
           tool: cargo-audit@0.22.2
