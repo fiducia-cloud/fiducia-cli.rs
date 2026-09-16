@@ -39,7 +39,7 @@ jobs:
   flags2env:
     permissions:
       contents: read
-    uses: flags-2-env/flags-2-env/.github/workflows/reusable-consumer-compliance.yml@3414281ed8d7339d5bfabf951048bff31aa3349e
+    uses: flags-2-env/flags-2-env/.github/workflows/reusable-consumer-compliance.yml@70d3e6e6d94f4d500bfaa9b66ab646cc03be2bef
     with:
       tooling_ref: 3414281ed8d7339d5bfabf951048bff31aa3349e
       # Compliance must audit the same parser revision linked into the CLI.
