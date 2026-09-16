@@ -344,13 +344,52 @@ mod tests {
     }
 
     #[test]
-    fn cli_flags_beat_environment_values() {
+    fn cli_flags_beat_environment_values() -> Result<(), String> {
         let parsed = parse(
             &argv(&["fiducia", "region", "--samples=7"]),
             &[("FIDUCIA_SAMPLES", "9")],
-        )
-        .expect("valid override");
+        )?;
         assert_eq!(parsed.samples, 7);
+        Ok(())
+    }
+
+    #[test]
+    fn config_flag_preserves_argv_env_precedence() -> Result<(), String> {
+        // The caller already selected the contract path before parsing. This
+        // option supplies a runtime environment value, not a second load of
+        // the contract from an argv-selected file.
+        for tokens in [
+            vec![
+                "fiducia",
+                "regions",
+                "--fiducia-flags-config=/missing/cli config.toml",
+            ],
+            vec![
+                "fiducia",
+                "regions",
+                "--fiducia-flags-config",
+                "/missing/cli config.toml",
+            ],
+        ] {
+            let parsed = parse(
+                &argv(&tokens),
+                &[("FIDUCIA_FLAGS_CONFIG", "/missing/env config.toml")],
+            )?;
+            assert_eq!(
+                env_value(&parsed.env, "FIDUCIA_FLAGS_CONFIG"),
+                Some("/missing/cli config.toml")
+            );
+            assert_eq!(parsed.command, Command::Regions);
+        }
+        let parsed = parse(
+            &argv(&["fiducia", "regions"]),
+            &[("FIDUCIA_FLAGS_CONFIG", "/missing/env config.toml")],
+        )?;
+        assert_eq!(
+            env_value(&parsed.env, "FIDUCIA_FLAGS_CONFIG"),
+            Some("/missing/env config.toml")
+        );
+        Ok(())
     }
 
     #[test]
