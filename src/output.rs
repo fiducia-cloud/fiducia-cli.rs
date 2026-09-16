@@ -41,7 +41,6 @@ pub fn emit<R: Report>(report: &R, format: Format) -> Result<i32, CliError> {
     let runtime = runtime_policy::current();
     let exit_code = report.exit_code();
     let stdout = io::stdout();
-    let mut output = ProtocolEmitter::new(stdout.lock(), StreamRole::Primary);
     let write = match format {
         Format::Human => {
             let role = if exit_code == 0 {
@@ -49,15 +48,14 @@ pub fn emit<R: Report>(report: &R, format: Format) -> Result<i32, CliError> {
             } else {
                 ColorRole::Error
             };
-            output.emit_primary_human_line(&paint(
-                runtime.color_stdout(),
-                role,
-                report.render_human(),
-            ))
+            ProtocolEmitter::new(stdout.lock(), StreamRole::Primary).emit_primary_human_line(
+                &paint(runtime.color_stdout(), role, report.render_human()),
+            )
         }
         Format::Json => {
             let encoded = serde_json::to_string(report)?;
-            output.emit_primary_machine_record(&encoded)
+            ProtocolEmitter::new(stdout.lock(), StreamRole::Primary)
+                .emit_primary_machine_record(&encoded)
         }
     };
 
@@ -70,10 +68,12 @@ pub fn emit<R: Report>(report: &R, format: Format) -> Result<i32, CliError> {
 
 pub fn emit_informational(value: &str) -> Result<(), CliError> {
     let stdout = io::stdout();
-    let mut output = ProtocolEmitter::new(stdout.lock(), StreamRole::Primary);
-    match top_level_io(output.emit_primary_human_line(value.trim_end_matches('\n'))).map_err(
-        |error| CliError::runtime(format!("could not write informational output: {error}")),
-    )? {
+    match top_level_io(
+        ProtocolEmitter::new(stdout.lock(), StreamRole::Primary)
+            .emit_primary_human_line(value.trim_end_matches('\n')),
+    )
+    .map_err(|error| CliError::runtime(format!("could not write informational output: {error}")))?
+    {
         EmitDisposition::Written | EmitDisposition::ConsumerClosed => Ok(()),
     }
 }
@@ -84,9 +84,10 @@ pub fn emit_error(value: impl std::fmt::Display) {
         return;
     }
     let stderr = io::stderr();
-    let mut output = ProtocolEmitter::new(stderr.lock(), StreamRole::Diagnostics);
     let line = paint(runtime.color_stderr(), ColorRole::Error, value);
-    let _ = top_level_io(output.emit_diagnostic_line(&line));
+    let _ = top_level_io(
+        ProtocolEmitter::new(stderr.lock(), StreamRole::Diagnostics).emit_diagnostic_line(&line),
+    );
 }
 
 pub fn emit_diagnostic_text(value: &str) {
@@ -95,6 +96,8 @@ pub fn emit_diagnostic_text(value: &str) {
         return;
     }
     let stderr = io::stderr();
-    let mut output = ProtocolEmitter::new(stderr.lock(), StreamRole::Diagnostics);
-    let _ = top_level_io(output.emit_diagnostic_line(value.trim_end_matches('\n')));
+    let _ = top_level_io(
+        ProtocolEmitter::new(stderr.lock(), StreamRole::Diagnostics)
+            .emit_diagnostic_line(value.trim_end_matches('\n')),
+    );
 }
