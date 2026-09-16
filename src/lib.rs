@@ -56,9 +56,13 @@ pub fn run(argv: &[String]) -> i32 {
             .passthrough
             .iter()
             .any(|arg| arg == "-j" || arg.starts_with("--json="));
-    let mut consumer_argv = Vec::with_capacity(shared.passthrough.len() + 1);
-    consumer_argv.push(argv.first().cloned().unwrap_or_else(|| PROGRAM.to_owned()));
-    consumer_argv.extend(shared.passthrough.iter().cloned());
+    let consumer_argv = std::iter::once(
+        argv.first()
+            .cloned()
+            .unwrap_or_else(|| PROGRAM.to_owned()),
+    )
+    .chain(shared.passthrough.iter().cloned())
+    .collect::<Vec<_>>();
     let argv = consumer_argv.as_slice();
 
     let config_path = match flags::resolve_config_path() {
@@ -76,13 +80,18 @@ pub fn run(argv: &[String]) -> i32 {
         };
     }
 
-    let mut args = match flags::parse_cli_args(argv, &config_path) {
+    let parsed = match flags::parse_cli_args(argv, &config_path) {
         Ok(args) => args,
         Err(error) => return report(&CliError::usage(error), Some(&config_path), argv),
     };
-    if shared.output_was_explicit() || !legacy_output_explicit {
-        args.json = runtime.json();
-    }
+    let args = if shared.output_was_explicit() || !legacy_output_explicit {
+        flags::CliArgs {
+            json: runtime.json(),
+            ..parsed
+        }
+    } else {
+        parsed
+    };
 
     match commands::dispatch(&args, &config_path) {
         Ok(code) => code,
