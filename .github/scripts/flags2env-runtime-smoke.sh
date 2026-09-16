@@ -6,8 +6,55 @@ repo_root="$(cd -- "$script_dir/../.." && pwd -P)"
 contract="$repo_root/.cli-flags.toml"
 fixture="$repo_root/.github/fixtures/regions.json"
 
-# fiducia-interfaces and fiducia-client are rev-pinned git dependencies, so
-# cargo resolves them from Cargo.lock; nothing has to be staged beside the repo.
+install_zed_if_needed() {
+  command -v zed >/dev/null 2>&1 && return 0
+
+  local archive expected tmp
+  case "$(uname -s)-$(uname -m)" in
+    Linux-x86_64)
+      archive=zed-x86_64-unknown-linux-gnu.tar.gz
+      expected=b8f81a8e4943cbaeb47153386819a911dcf02666a8709c5bd013e4f35b1ba1b9
+      ;;
+    Darwin-arm64)
+      archive=zed-aarch64-apple-darwin.tar.gz
+      expected=46052288d8a5ca178e7f942aeb03197022416ce13c3ac4ebd0fea66963977e62
+      ;;
+    Darwin-x86_64)
+      archive=zed-x86_64-apple-darwin.tar.gz
+      expected=618d2739b252aab84877b280759f70b2d0352eb7d2c4a9e91a37baa152f48ad7
+      ;;
+    *)
+      echo 'flags2env runtime smoke needs zed on this platform' >&2
+      return 1
+      ;;
+  esac
+
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "${tmp:-}"' EXIT
+  curl --fail --location --retry 3 \
+    --output "$tmp/$archive" \
+    "https://github.com/zed-pkg/zed-cli/releases/download/v0.2.3/$archive"
+  if [[ $(uname -s) == Linux ]]; then
+    printf '%s  %s\n' "$expected" "$tmp/$archive" | sha256sum --check --strict
+  else
+    test "$(shasum -a 256 "$tmp/$archive" | awk '{print $1}')" = "$expected"
+  fi
+  tar -xzf "$tmp/$archive" -C "$tmp"
+  PATH="$tmp:$PATH"
+  export PATH
+}
+
+# ores-clis-core is intentionally a Zed-owned source SDK. The compliance smoke
+# must establish the same frozen package state as normal CI before Cargo runs;
+# never fall back to a direct Git dependency just to make this lane build.
+install_zed_if_needed
+(
+  cd "$repo_root"
+  zed validate --require-lock
+  zed install --frozen --install-mode copy
+)
+
+# fiducia-interfaces and fiducia-client remain rev-pinned Cargo Git dependencies.
 cargo build --locked --manifest-path "$repo_root/Cargo.toml" --bin fiducia
 binary="$repo_root/target/debug/fiducia"
 

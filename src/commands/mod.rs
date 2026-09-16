@@ -1,92 +1,80 @@
-//! One module per subcommand, plus the dispatch table.
-//!
-//! Which command ran is decided by flags-2-env from the `[commands.*]` tables
-//! in `.cli-flags.toml` — never by hand-matching argv here. [`Command`] is the
-//! closed set that `.cli-flags.toml` may resolve to; adding a command means
-//! adding it in both places, and the `command_set_matches_config` test fails
-//! until you do.
+//! The command vocabulary shared by dispatch and help-completeness tests.
 
 pub mod completion;
 pub mod health;
 pub mod region;
 pub mod regions;
-
-use std::path::Path;
+pub mod version;
 
 use crate::error::CliError;
 use crate::flags::CliArgs;
+use crate::output::{self, Format};
+use std::path::Path;
 
-/// The commands `.cli-flags.toml` can resolve to, after alias canonicalisation
-/// (`closest` → `Region`).
+/// Every supported subcommand. Keep this list aligned with `.cli-flags.toml`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Command {
-    /// List the selectable regions.
-    Regions,
-    /// Probe the regions and pick the closest.
     Region,
-    /// Ask one region's node for its health and status.
+    Regions,
     Health,
-    /// Print a shell completion script.
     Completion,
+    Version,
 }
 
 impl Command {
-    /// The canonical `[commands.*]` key, which is also what flags-2-env puts in
-    /// `FLAGS2ENV_COMMAND`.
-    pub const fn as_str(self) -> &'static str {
+    pub const ALL: [Self; 5] = [
+        Self::Region,
+        Self::Regions,
+        Self::Health,
+        Self::Completion,
+        Self::Version,
+    ];
+
+    pub const fn name(self) -> &'static str {
         match self {
-            Self::Regions => "regions",
             Self::Region => "region",
+            Self::Regions => "regions",
             Self::Health => "health",
             Self::Completion => "completion",
+            Self::Version => "version",
         }
     }
 
-    /// Resolves the label flags-2-env reported. Aliases are already collapsed
-    /// by the parser except for the command path itself, so `closest` is mapped
-    /// here to keep one canonical spelling downstream.
-    pub fn parse(label: &str) -> Result<Self, CliError> {
-        match label {
-            "regions" => Ok(Self::Regions),
+    pub fn parse(value: &str) -> Result<Self, CliError> {
+        match value {
             "region" | "closest" => Ok(Self::Region),
+            "regions" => Ok(Self::Regions),
             "health" => Ok(Self::Health),
             "completion" => Ok(Self::Completion),
-            "" => Err(CliError::usage(
-                "no command given; expected one of: regions, region, health, completion",
-            )),
-            other => Err(CliError::usage(format!("unsupported command {other:?}"))),
+            "version" => Ok(Self::Version),
+            other => Err(CliError::usage(format!("unknown command: {other}"))),
         }
     }
-
-    /// Every command, for the config-parity test and for diagnostics.
-    pub const ALL: [Self; 4] = [Self::Regions, Self::Region, Self::Health, Self::Completion];
 }
 
-/// Runs the selected command and returns its exit code.
+/// Dispatches one validated command.
 pub fn dispatch(args: &CliArgs, config_path: &Path) -> Result<i32, CliError> {
+    let format = Format::from_json_flag(args.json);
     match args.command {
-        Command::Regions => regions::run(args),
-        Command::Region => region::run(args),
-        Command::Health => health::run(args),
+        Command::Region => output::emit(&region::run(args)?, format),
+        Command::Regions => output::emit(&regions::run(args)?, format),
+        Command::Health => output::emit(&health::run(args)?, format),
         Command::Completion => completion::run(args, config_path),
+        Command::Version => output::emit(&version::run(), format),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::Command;
 
     #[test]
-    fn command_set_matches_config() {
-        // Guards the two-places problem: a `[commands.x]` table with no
-        // `Command::X` would be accepted by the parser and then rejected at
-        // dispatch, which is a confusing runtime failure rather than a build
-        // failure.
+    fn command_enum_matches_contract_tables() {
         let config = include_str!("../../.cli-flags.toml");
         for command in Command::ALL {
-            let table = format!("[commands.{}]", command.as_str());
+            let table = format!("[commands.{}]", command.name());
             assert!(
-                config.contains(&table),
+                config.lines().any(|line| line.trim() == table),
                 "{table} is missing from .cli-flags.toml"
             );
         }
@@ -108,8 +96,8 @@ mod tests {
 
     #[test]
     fn closest_is_an_alias_for_region() {
-        assert_eq!(Command::parse("closest").unwrap(), Command::Region);
-        assert_eq!(Command::parse("region").unwrap(), Command::Region);
+        assert!(matches!(Command::parse("closest"), Ok(Command::Region)));
+        assert!(matches!(Command::parse("region"), Ok(Command::Region)));
     }
 
     #[test]
