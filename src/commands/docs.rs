@@ -1,10 +1,12 @@
 //! Offline deterministic API/MCP documentation generation through ores-api-docs.
 
+#![allow(clippy::needless_return)]
+
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-use ores_api_docs::{Catalog, PublicationMode, RouteMap, render_docs_publication};
+use ores_api_docs::{render_docs_publication, Catalog, PublicationMode, RouteMap};
 use serde::{Deserialize, Serialize};
 
 use crate::error::CliError;
@@ -43,8 +45,11 @@ impl Report for DocsReport {
 }
 
 pub fn run(args: &CliArgs) -> Result<i32, CliError> {
-    let project_root = std::env::current_dir()
-        .map_err(|error| CliError::runtime(format!("cannot resolve current project directory: {error}")))?;
+    let project_root = std::env::current_dir().map_err(|error| {
+        CliError::runtime(format!(
+            "cannot resolve current project directory: {error}"
+        ))
+    })?;
     let config_path = project_root.join(CONFIG_FILE);
     let config_text = fs::read_to_string(&config_path).map_err(|error| {
         CliError::config(format!(
@@ -53,8 +58,9 @@ pub fn run(args: &CliArgs) -> Result<i32, CliError> {
             CONFIG_FILE
         ))
     })?;
-    let config: DocsConfig = toml::from_str(&config_text)
-        .map_err(|error| CliError::config(format!("invalid {}: {error}", config_path.display())))?;
+    let config: DocsConfig = toml::from_str(&config_text).map_err(|error| {
+        CliError::config(format!("invalid {}: {error}", config_path.display()))
+    })?;
     validate_config(&config)?;
 
     let route_map_path = resolve_project_path(&project_root, &config.route_map, "route_map")?;
@@ -209,14 +215,14 @@ mod tests {
 
     #[test]
     fn publication_modes_are_explicit_and_closed() {
-        assert_eq!(
-            publication_mode("publisher_external").expect("publisher mode"),
-            PublicationMode::PublisherExternal
-        );
-        assert_eq!(
-            publication_mode("consumer_project").expect("consumer mode"),
-            PublicationMode::ConsumerProject
-        );
+        assert!(matches!(
+            publication_mode("publisher_external"),
+            Ok(PublicationMode::PublisherExternal)
+        ));
+        assert!(matches!(
+            publication_mode("consumer_project"),
+            Ok(PublicationMode::ConsumerProject)
+        ));
         assert!(publication_mode("official").is_err());
     }
 
@@ -224,9 +230,8 @@ mod tests {
     fn project_paths_reject_escape_and_project_root() {
         let root = Path::new("project");
         assert_eq!(
-            resolve_project_path(root, "contracts/api.route-map.json", "route_map")
-                .expect("relative path"),
-            PathBuf::from("project/contracts/api.route-map.json")
+            resolve_project_path(root, "contracts/api.route-map.json", "route_map").ok(),
+            Some(PathBuf::from("project/contracts/api.route-map.json"))
         );
         assert!(resolve_project_path(root, "../outside.json", "route_map").is_err());
         assert!(resolve_project_path(root, "/tmp/out", "out_dir").is_err());
