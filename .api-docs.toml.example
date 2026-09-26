@@ -1,0 +1,5 @@
+schema_version = "ores.api-docs.publication-config.v1"
+route_map = "contracts/api.route-map.json"
+out_dir = ".fiducia/docs"
+publication_mode = "consumer_project"
+producer = "example-project"
