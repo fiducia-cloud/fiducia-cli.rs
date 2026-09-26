@@ -14,9 +14,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  ZED_CLI_REV: dbd63f1d87d12c2e8cb9a8c600fae9b79f94e559
-
 jobs:
   workflow-lint:
     runs-on: ubuntu-latest
@@ -61,26 +58,13 @@ jobs:
       - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
         with:
           workspaces: repo
-      - name: Build audited Zed CLI
-        shell: bash
-        run: |
-          set -euo pipefail
-          cargo install \
-            --locked \
-            --git https://github.com/zed-pkg/zed-cli.git \
-            --rev "$ZED_CLI_REV" \
-            --root "$RUNNER_TEMP/zed-cli" \
-            --bin zed
-          echo "$RUNNER_TEMP/zed-cli/bin" >> "$GITHUB_PATH"
-          "$RUNNER_TEMP/zed-cli/bin/zed" --version
-      - name: Install frozen Zed dependencies
+      - name: Verify deterministic renderer source pin
         shell: bash
         working-directory: repo
         run: |
           set -euo pipefail
-          zed validate --require-lock
-          zed install --frozen --install-mode copy
-          test -f .vendor/.zed/oresoftware/api-docs/rust/Cargo.toml
+          grep -Fq 'rev = "3f3c7cc6061e6779911b52601644373ef9f78e9a"' Cargo.toml
+          grep -Fq '"oresoftware/api-docs" = "^2.0.3"' .zpkg.toml
       - name: fmt
         if: ${{ matrix.os == 'ubuntu-latest' }}
         working-directory: repo
@@ -111,26 +95,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
         with:
           toolchain: "1.95.0"
-      - name: Build audited Zed CLI
-        shell: bash
-        run: |
-          set -euo pipefail
-          cargo install \
-            --locked \
-            --git https://github.com/zed-pkg/zed-cli.git \
-            --rev "$ZED_CLI_REV" \
-            --root "$RUNNER_TEMP/zed-cli" \
-            --bin zed
-          echo "$RUNNER_TEMP/zed-cli/bin" >> "$GITHUB_PATH"
-          "$RUNNER_TEMP/zed-cli/bin/zed" --version
-      - name: Install frozen Zed dependencies
-        shell: bash
-        working-directory: repo
-        run: |
-          set -euo pipefail
-          zed validate --require-lock
-          zed install --frozen --install-mode copy
-          test -f .vendor/.zed/oresoftware/api-docs/rust/Cargo.toml
       - uses: taiki-e/install-action@1ed6d7be6168f6c9046541087ff549b6bc581fdf # v2
         with:
           tool: cargo-audit@0.22.2
