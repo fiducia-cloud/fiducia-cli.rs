@@ -21,8 +21,13 @@ flags2env = { git = "https://github.com/flags-2-env/flags-2-env.git", rev = "8c8
 ureq = "3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+toml = "0.8"
 
-# Org dependencies — the same two edges declared in `.zpkg.toml`.
+# Shared deterministic API/MCP documentation renderer. Zed installs the
+# repository package into .vendor/.zed; Cargo consumes only its Rust target.
+ores-api-docs = { path = ".vendor/.zed/oresoftware/api-docs/rust", version = "0.1.0", default-features = false }
+
+# Org dependencies — the same edges declared in `.zpkg.toml`.
 #
 # Pinned by rev rather than branch so a clone builds the code it was tested
 # against. These were path deps into a sibling checkout, which only resolved
