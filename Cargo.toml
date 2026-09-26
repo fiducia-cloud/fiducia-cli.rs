@@ -27,7 +27,9 @@ toml = "0.8"
 # repository package into .vendor/.zed; Cargo consumes only its Rust target.
 ores-api-docs = { path = ".vendor/.zed/oresoftware/api-docs/rust", version = "0.1.0", default-features = false }
 
-# Org dependencies — the same edges declared in `.zpkg.toml`.
+# Existing Fiducia transport and contract crates are pinned directly by Git.
+# `.zpkg.toml` separately describes the package graph used by Zed, including
+# non-Cargo package relationships such as fiducia-lib.
 #
 # Pinned by rev rather than branch so a clone builds the code it was tested
 # against. These were path deps into a sibling checkout, which only resolved
