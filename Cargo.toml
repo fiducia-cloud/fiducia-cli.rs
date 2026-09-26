@@ -23,9 +23,12 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.8"
 
-# Shared deterministic API/MCP documentation renderer. Zed installs the
-# repository package into .vendor/.zed; Cargo consumes only its Rust target.
-ores-api-docs = { path = ".vendor/.zed/oresoftware/api-docs/rust", version = "0.1.0", default-features = false }
+# Shared deterministic API/MCP documentation renderer. The Rust build pins the
+# exact api-docs v2.0.3 source commit, independently of package-registry state.
+# `.zpkg.toml` keeps the corresponding universal-package dependency so Zed can
+# become an additional frozen transport once the broader Fiducia graph is
+# published and lockable; it is not the build's trust anchor.
+ores-api-docs = { git = "https://github.com/ORESoftware/api-docs.git", rev = "3f3c7cc6061e6779911b52601644373ef9f78e9a", package = "ores-api-docs", version = "0.1.0", default-features = false }
 
 # Existing Fiducia transport and contract crates are pinned directly by Git.
 # `.zpkg.toml` separately describes the package graph used by Zed, including
