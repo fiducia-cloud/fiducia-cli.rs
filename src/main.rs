@@ -16,6 +16,14 @@ fn main() {
         );
     }
 
+    if std::env::args()
+        .nth(1)
+        .is_some_and(|argument| matches!(argument.as_str(), "--version" | "-V"))
+    {
+        println!("fiducia {}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
+
     let argv = std::env::args().collect::<Vec<_>>();
     std::process::exit(fiducia_cli::run(&argv));
 }
