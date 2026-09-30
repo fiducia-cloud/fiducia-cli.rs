@@ -33,6 +33,9 @@ short = "u"
 type = "string"
 help = "Probe this node URL directly instead of resolving one from --regions."
 
+[commands.docs]
+help = "Generate deterministic API and MCP docs from the project-local .api-docs.toml and route map."
+
 [commands.completion]
 help = "Print a shell completion script for this CLI."
 

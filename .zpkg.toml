@@ -15,6 +15,7 @@ url = "https://github.com/fiducia-cloud/fiducia-cli.rs"
 "fiducia-cloud/fiducia-clients" = "^0.1.0"
 "fiducia-cloud/fiducia-interfaces" = "^0.1.0"
 "fiducia-cloud/fiducia-lib" = "^0.1.0"
+"oresoftware/api-docs" = "^2.0.3"
 
 [build]
 command = "cargo build --release --locked --bin fiducia"

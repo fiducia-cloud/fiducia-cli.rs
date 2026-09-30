@@ -7,6 +7,7 @@
 //! until you do.
 
 pub mod completion;
+pub mod docs;
 pub mod health;
 pub mod region;
 pub mod regions;
@@ -26,6 +27,8 @@ pub enum Command {
     Region,
     /// Ask one region's node for its health and status.
     Health,
+    /// Generate deterministic API/MCP docs from a project route map.
+    Docs,
     /// Print a shell completion script.
     Completion,
 }
@@ -38,6 +41,7 @@ impl Command {
             Self::Regions => "regions",
             Self::Region => "region",
             Self::Health => "health",
+            Self::Docs => "docs",
             Self::Completion => "completion",
         }
     }
@@ -50,16 +54,23 @@ impl Command {
             "regions" => Ok(Self::Regions),
             "region" | "closest" => Ok(Self::Region),
             "health" => Ok(Self::Health),
+            "docs" => Ok(Self::Docs),
             "completion" => Ok(Self::Completion),
             "" => Err(CliError::usage(
-                "no command given; expected one of: regions, region, health, completion",
+                "no command given; expected one of: regions, region, health, docs, completion",
             )),
             other => Err(CliError::usage(format!("unsupported command {other:?}"))),
         }
     }
 
     /// Every command, for the config-parity test and for diagnostics.
-    pub const ALL: [Self; 4] = [Self::Regions, Self::Region, Self::Health, Self::Completion];
+    pub const ALL: [Self; 5] = [
+        Self::Regions,
+        Self::Region,
+        Self::Health,
+        Self::Docs,
+        Self::Completion,
+    ];
 }
 
 /// Runs the selected command and returns its exit code.
@@ -68,6 +79,7 @@ pub fn dispatch(args: &CliArgs, config_path: &Path) -> Result<i32, CliError> {
         Command::Regions => regions::run(args),
         Command::Region => region::run(args),
         Command::Health => health::run(args),
+        Command::Docs => docs::run(args),
         Command::Completion => completion::run(args, config_path),
     }
 }
@@ -110,6 +122,11 @@ mod tests {
     fn closest_is_an_alias_for_region() {
         assert_eq!(Command::parse("closest").unwrap(), Command::Region);
         assert_eq!(Command::parse("region").unwrap(), Command::Region);
+    }
+
+    #[test]
+    fn docs_is_a_closed_command() {
+        assert_eq!(Command::parse("docs").unwrap(), Command::Docs);
     }
 
     #[test]
