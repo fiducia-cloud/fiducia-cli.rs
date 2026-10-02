@@ -340,7 +340,7 @@ dependencies = [
  "ores-clis-core",
  "serde",
  "serde_json",
- "ureq 3.4.0",
+ "ureq 3.4.2",
 ]
 
 [[package]]
@@ -350,7 +350,7 @@ source = "git+https://github.com/fiducia-cloud/fiducia-clients.git?rev=ebcecaee2
 dependencies = [
  "fiducia-interfaces",
  "serde_json",
- "ureq 3.4.0",
+ "ureq 3.4.2",
  "uuid",
 ]
 
