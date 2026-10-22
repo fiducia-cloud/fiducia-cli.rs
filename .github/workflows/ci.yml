@@ -58,6 +58,13 @@ jobs:
       - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
         with:
           workspaces: repo
+      - name: Verify deterministic renderer source pin
+        shell: bash
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          grep -Fq 'rev = "3f3c7cc6061e6779911b52601644373ef9f78e9a"' Cargo.toml
+          grep -Fq '"oresoftware/api-docs" = "^2.0.3"' .zpkg.toml
       - name: fmt
         if: ${{ matrix.os == 'ubuntu-latest' }}
         working-directory: repo
