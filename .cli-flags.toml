@@ -1,4 +1,4 @@
-# flags-2-env config — https://github.com/ORESoftware/flags-2-env
+# flags-2-env config — https://github.com/flags-2-env/flags-2-env
 #
 # This file is the CLI contract. The Rust binary parses it directly on every
 # platform, and `--help`, shell completions, env-var names, types, and defaults
